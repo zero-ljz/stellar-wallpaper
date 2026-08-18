@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# PyInstaller
+*.spec
+
+# Pytest / Cache
+.pytest_cache/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Temporary / Scratch
+active_btn.png
