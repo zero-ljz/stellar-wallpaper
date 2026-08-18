@@ -30,11 +30,12 @@ from ..components.wallpaper_card import WallpaperCard
 
 
 class FetchPageWorker(QThread):
-    finished = Signal(dict)
-    error = Signal(str)
+    data_loaded = Signal(dict, int)  # data, req_id
+    error = Signal(str, int)         # error_msg, req_id
 
     def __init__(
         self,
+        req_id: int,
         category_id: str = "",
         keyword: str = "",
         start: int = 0,
@@ -42,6 +43,7 @@ class FetchPageWorker(QThread):
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        self.req_id = req_id
         self.category_id = category_id
         self.keyword = keyword
         self.start_idx = start
@@ -53,9 +55,9 @@ class FetchPageWorker(QThread):
                 result = api_client.search_wallpapers(self.keyword, self.start_idx, self.count)
             else:
                 result = api_client.get_category_wallpapers(self.category_id or "36", self.start_idx, self.count)
-            self.finished.emit(result)
+            self.data_loaded.emit(result, self.req_id)
         except Exception as e:
-            self.error.emit(str(e))
+            self.error.emit(str(e), self.req_id)
 
 
 class GalleryPage(QWidget):
@@ -67,10 +69,12 @@ class GalleryPage(QWidget):
         super().__init__(parent)
         self._current_cat_id = "36"  # default 4K专区
         self._current_keyword = ""
-        self._page_size = 20
+        self._page_size = 24
         self._current_page = 1
         self._total_count = 0
         self._total_pages = 1
+        self._req_id = 0
+        self._active_workers: set[FetchPageWorker] = set()
 
         self._cards: list[WallpaperCard] = []
         self._current_cols = 0
@@ -322,31 +326,35 @@ class GalleryPage(QWidget):
     def load_page(self, page_num: int) -> None:
         self._current_page = max(1, page_num)
         start = (self._current_page - 1) * self._page_size
+        self._req_id += 1
+        req_id = self._req_id
 
         self._clear_grid()
         self.status_label.setText("正在努力加载壁纸...")
         self.status_label.show()
 
-        if hasattr(self, "_current_worker") and self._current_worker and self._current_worker.isRunning():
-            old_worker = self._current_worker
-            try:
-                old_worker.finished.disconnect()
-                old_worker.error.disconnect()
-            except Exception:
-                pass
-            old_worker.finished.connect(old_worker.deleteLater)
-            old_worker.quit()
-
         worker = FetchPageWorker(
+            req_id=req_id,
             category_id=self._current_cat_id,
             keyword=self._current_keyword,
             start=start,
             count=self._page_size,
             parent=self,
         )
-        self._current_worker = worker
-        worker.finished.connect(self._on_page_loaded)
-        worker.error.connect(self._on_page_error)
+        self._active_workers.add(worker)
+
+        def _on_loaded(data: dict[str, Any], r_id: int, w=worker) -> None:
+            self._active_workers.discard(w)
+            if r_id == self._req_id:
+                self._on_page_loaded(data)
+
+        def _on_err(err: str, r_id: int, w=worker) -> None:
+            self._active_workers.discard(w)
+            if r_id == self._req_id:
+                self._on_page_error(err)
+
+        worker.data_loaded.connect(_on_loaded)
+        worker.error.connect(_on_err)
         worker.finished.connect(worker.deleteLater)
         worker.start()
 
@@ -362,6 +370,10 @@ class GalleryPage(QWidget):
 
     def _on_page_loaded(self, data: dict[str, Any]) -> None:
         self.status_label.hide()
+        if data.get("error"):
+            self._on_page_error(data["error"])
+            return
+
         items = data.get("items", [])
         self._total_count = data.get("total", len(items))
         self._total_pages = max(1, math.ceil(self._total_count / self._page_size))
