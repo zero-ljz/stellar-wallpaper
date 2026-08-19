@@ -58,16 +58,35 @@ COLOR_DANGER = "#EF4444"
 COLOR_DANGER_BG = "#FEF2F2"
 
 
+def force_window_light_mode(hwnd: int) -> None:
+    """Explicitly forces Windows DWM to render light mode on the given window handle."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import byref, c_int, sizeof
+            dark_value = c_int(0)  # 0 = Light mode (False)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                ctypes.c_void_p(hwnd),
+                20,  # DWMWA_USE_IMMERSIVE_DARK_MODE
+                byref(dark_value),
+                sizeof(dark_value),
+            )
+        except Exception:
+            pass
+
+
 def apply_fusion_light_theme(app: QApplication) -> None:
-    """Applies Fusion style with enhanced bold MiSans font and tuned Windows 11 Light Palette."""
+    """Applies Fusion style with high-DPI crystal-clear font rendering and tuned Windows 11 Light Palette."""
     app.setStyle("Fusion")
 
-    # Load and apply MiSans font globally with DemiBold (600) weight for solid fullness
+    # High-DPI screen (3.2K / 4K with 150%/200% scaling) optimal font setup:
+    # 1. Use natural Normal weight (400) to avoid algorithmic faux-bold smudging on single-weight fonts.
+    # 2. Use PreferNoHinting to preserve true vector outline curves without 96-DPI integer grid distortion.
     font_family = load_application_fonts()
     app_font = QFont(font_family)
     app_font.setPointSize(10)
-    app_font.setWeight(QFont.Weight.DemiBold)  # 600 weight: one level bolder across entire app
-    app_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)  # Snap strokes to pixel grid
+    app_font.setWeight(QFont.Weight.Normal)
+    app_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
     app_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias | QFont.StyleStrategy.PreferQuality)
     app.setFont(app_font)
 
@@ -93,10 +112,49 @@ def get_global_stylesheet(font_family: str = "MiSans") -> str:
     return f"""
 /* Global Typography and Base */
 QWidget {{
-    font-family: "{font_family}", "MiSans", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-family: "{font_family}", "Segoe UI", "Microsoft YaHei UI", sans-serif;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: normal;
     color: {COLOR_TEXT_MAIN};
+}}
+
+/* All Dialogs and Message Boxes - Pure Fusion Light Mode */
+QDialog, QMessageBox, QFileDialog, QInputDialog {{
+    background-color: #FFFFFF;
+    color: {COLOR_TEXT_MAIN};
+}}
+
+QDialog QLabel, QMessageBox QLabel, QFileDialog QLabel {{
+    background: transparent;
+    border: none;
+    color: {COLOR_TEXT_MAIN};
+}}
+
+QDialogButtonBox {{
+    background-color: transparent;
+    border: none;
+}}
+
+QDialogButtonBox QPushButton, QMessageBox QPushButton {{
+    background-color: {COLOR_ACCENT};
+    color: #FFFFFF;
+    border: 1px solid {COLOR_ACCENT};
+    border-radius: 6px;
+    padding: 6px 18px;
+    font-weight: bold;
+    font-size: 13px;
+    min-width: 75px;
+    min-height: 24px;
+}}
+
+QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover {{
+    background-color: {COLOR_ACCENT_HOVER};
+    border-color: {COLOR_ACCENT_HOVER};
+}}
+
+QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed {{
+    background-color: {COLOR_ACCENT_PRESSED};
+    border-color: {COLOR_ACCENT_PRESSED};
 }}
 
 /* All text labels and titles must have NO border */
@@ -104,7 +162,6 @@ QLabel, QLabel:hover, QLabel:focus, QLabel:disabled {{
     background: transparent;
     border: none;
     outline: none;
-    font-weight: 600;
     color: {COLOR_TEXT_MAIN};
 }}
 
@@ -498,27 +555,30 @@ QToolTip {{
     font-weight: 600;
 }}
 
-/* Context Menus */
+/* Context Menus - Modern Windows 11 Fluent Style */
 QMenu {{
     background-color: #FFFFFF;
     border: 1px solid #CBD5E1;
     border-radius: 8px;
-    padding: 6px 4px;
+    padding: 6px;
 }}
 QMenu::item {{
-    padding: 7px 22px;
-    border-radius: 5px;
+    padding: 8px 24px 8px 38px;
+    border-radius: 6px;
     color: #0B0F19;
     font-size: 13px;
-    font-weight: 600;
+    margin: 2px 2px;
 }}
 QMenu::item:selected {{
     background-color: #EFF6FF;
     color: #0078D4;
 }}
+QMenu::icon {{
+    left: 12px;
+}}
 QMenu::separator {{
     height: 1px;
     background: #E2E8F0;
-    margin: 4px 8px;
+    margin: 4px 6px;
 }}
 """

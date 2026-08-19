@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QEvent, QPoint, QPropertyAnimation, QRect, Qt, Signal
+from PySide6.QtCore import QEvent, QPoint, QPropertyAnimation, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QWheelEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -17,35 +17,40 @@ from PySide6.QtWidgets import (
 )
 
 from ...constants import CATEGORIES
+from ..icons import create_fluent_icon
 
-# Rich Category Emojis / Badges for visual appeal
-CATEGORY_EMOJIS = {
-    "36": "✨",  # 4K专区
-    "9": "🏔️",  # 风景大片
-    "26": "🎨",  # 动漫卡通
-    "5": "🎮",  # 游戏壁纸
-    "12": "🏎️",  # 汽车天下
-    "14": "🐱",  # 萌宠动物
-    "6": "💃",  # 美女模特
-    "10": "🕶️",  # 炫酷时尚
-    "15": "🍃",  # 小清新
-    "7": "🎬",  # 影视剧照
-    "30": "💖",  # 爱情美图
-    "11": "🌟",  # 明星风尚
-    "22": "🚀",  # 军事天地
-    "16": "⚽",  # 劲爆体育
-    "35": "✍️",  # 文字控
+# Microsoft Fluent Category Vector Icons
+CATEGORY_ICONS = {
+    "latest": "cat_latest",
+    "36": "cat_4k",
+    "9": "cat_landscape",
+    "26": "cat_anime",
+    "5": "cat_game",
+    "12": "cat_car",
+    "14": "cat_pet",
+    "6": "cat_beauty",
+    "10": "cat_fashion",
+    "15": "cat_fresh",
+    "7": "cat_movie",
+    "30": "cat_love",
+    "11": "cat_star",
+    "22": "cat_military",
+    "16": "cat_sports",
+    "35": "cat_text",
 }
 
 
 class CategoryTabButton(QPushButton):
-    """Clean minimalist tab button with bottom indicator bar (no clunky background)."""
+    """Clean minimalist tab button with bottom indicator bar and vector icon."""
 
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+    def __init__(self, text: str, icon_name: str = "", parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(34)
+        if icon_name:
+            self.setIcon(create_fluent_icon(icon_name, color="#475569", size=18))
+            self.setIconSize(QSize(18, 18))
         self.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -54,7 +59,7 @@ class CategoryTabButton(QPushButton):
                 border-radius: 0px;
                 padding: 4px 12px;
                 font-size: 13px;
-                font-weight: 650;
+                font-weight: normal;
                 color: #334155;
             }
             QPushButton:hover {
@@ -63,39 +68,36 @@ class CategoryTabButton(QPushButton):
             }
             QPushButton:checked {
                 color: #0078D4;
-                font-weight: 800;
+                font-weight: bold;
                 border-bottom: 2.5px solid #0078D4;
             }
         """)
 
 
 class CategoryNavArrowButton(QPushButton):
-    """Clean compact scroll arrow button."""
+    """Clean compact scroll arrow button with Fluent vector icon."""
 
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
-        super().__init__(text, parent)
-        self.setFixedSize(24, 30)
+    def __init__(self, icon_name: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(28, 30)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setIcon(create_fluent_icon(icon_name, color="#64748B", size=16))
+        self.setIconSize(QSize(16, 16))
         self.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
                 border: none;
                 border-radius: 4px;
-                font-size: 16px;
-                font-weight: bold;
-                color: #94A3B8;
                 padding: 0;
             }
             QPushButton:hover {
                 background-color: rgba(0, 0, 0, 0.05);
-                color: #0F172A;
             }
             QPushButton:pressed {
                 background-color: rgba(0, 0, 0, 0.1);
             }
             QPushButton:disabled {
-                color: transparent;
-                background-color: transparent;
+                opacity: 0.2;
             }
         """)
 
@@ -141,7 +143,7 @@ class CategoryTabBar(QFrame):
     def __init__(
         self,
         categories: list[dict[str, str]] | None = None,
-        default_cat_id: str = "36",
+        default_cat_id: str = "latest",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -166,7 +168,7 @@ class CategoryTabBar(QFrame):
         main_layout.setSpacing(2)
 
         # Left scroll arrow button
-        self.left_arrow_btn = CategoryNavArrowButton("‹", self)
+        self.left_arrow_btn = CategoryNavArrowButton("chevron_left", self)
         self.left_arrow_btn.clicked.connect(self._scroll_left)
         main_layout.addWidget(self.left_arrow_btn)
 
@@ -185,9 +187,9 @@ class CategoryTabBar(QFrame):
             cid = cat["id"]
             name = cat["name"]
             desc = cat.get("desc", "")
-            emoji = CATEGORY_EMOJIS.get(cid, "🖼️")
+            icon_key = CATEGORY_ICONS.get(cid, "gallery")
 
-            btn = CategoryTabButton(f"{emoji}  {name}", self.scroll_container)
+            btn = CategoryTabButton(name, icon_name=icon_key, parent=self.scroll_container)
             btn.setToolTip(f"{name}\n{desc}" if desc else name)
 
             if cid == self._current_cat_id:
@@ -208,7 +210,7 @@ class CategoryTabBar(QFrame):
         main_layout.addWidget(self.scroll_area, 1)
 
         # Right scroll arrow button
-        self.right_arrow_btn = CategoryNavArrowButton("›", self)
+        self.right_arrow_btn = CategoryNavArrowButton("chevron_right", self)
         self.right_arrow_btn.clicked.connect(self._scroll_right)
         main_layout.addWidget(self.right_arrow_btn)
 

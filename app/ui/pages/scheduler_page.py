@@ -24,6 +24,7 @@ from ...config import config
 from ...constants import INTERVAL_OPTIONS
 from ...core.scheduler import scheduler
 from ..components.switch_toggle import SwitchToggle
+from ..icons import create_icon
 
 
 class IntervalChipButton(QPushButton):
@@ -95,7 +96,8 @@ class SchedulerPage(QWidget):
 
         toggle_row.addStretch()
 
-        self.toggle_btn = QPushButton("▶ 开启自动换壁纸", status_card)
+        self.toggle_btn = QPushButton("开启自动换壁纸", status_card)
+        self.toggle_btn.setIcon(create_icon("play", color="#FFFFFF", size=16))
         self.toggle_btn.setProperty("class", "PrimaryButton")
         self.toggle_btn.setFixedSize(160, 38)
         font = self.toggle_btn.font()
@@ -113,7 +115,7 @@ class SchedulerPage(QWidget):
 
         # Live Digital Countdown Clock Display
         cd_row = QHBoxLayout()
-        cd_lbl = QLabel("⏱️ 距离下次壁纸切换剩余时间:", status_card)
+        cd_lbl = QLabel("距离下次壁纸切换剩余时间:", status_card)
         cd_lbl.setStyleSheet("color: #475569; font-size: 13px; font-weight: 500; border: none; background: transparent;")
         cd_row.addWidget(cd_lbl)
 
@@ -130,11 +132,13 @@ class SchedulerPage(QWidget):
 
         cd_row.addSpacing(16)
 
-        self.next_now_btn = QPushButton("⚡ 立即换下一张", status_card)
+        self.next_now_btn = QPushButton("立即换下一张", status_card)
+        self.next_now_btn.setIcon(create_icon("skip_forward", color="#475569", size=14))
         self.next_now_btn.clicked.connect(lambda: scheduler.trigger_switch(source=config.auto_switch_source))
         cd_row.addWidget(self.next_now_btn)
 
-        self.reset_cd_btn = QPushButton("🔄 重置计时", status_card)
+        self.reset_cd_btn = QPushButton("重置计时", status_card)
+        self.reset_cd_btn.setIcon(create_icon("reset", color="#475569", size=14))
         self.reset_cd_btn.clicked.connect(scheduler.reset_timer)
         cd_row.addWidget(self.reset_cd_btn)
 
@@ -163,7 +167,7 @@ class SchedulerPage(QWidget):
         ic_layout.setContentsMargins(20, 16, 20, 16)
         ic_layout.setSpacing(12)
 
-        ic_title = QLabel("⏱️ 轮播时间间隔设置", interval_card)
+        ic_title = QLabel("轮播时间间隔设置", interval_card)
         font = ic_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -191,7 +195,8 @@ class SchedulerPage(QWidget):
 
         # Custom minutes chip row
         custom_row = QHBoxLayout()
-        self.custom_chip = IntervalChipButton("⏱️ 自定义时长", -1, interval_card)
+        self.custom_chip = IntervalChipButton("自定义时长", -1, interval_card)
+        self.custom_chip.setIcon(create_icon("timer", color="#475569", size=14))
         self.interval_group.addButton(self.custom_chip)
         custom_row.addWidget(self.custom_chip)
 
@@ -223,7 +228,7 @@ class SchedulerPage(QWidget):
         oc_layout.setContentsMargins(20, 16, 20, 16)
         oc_layout.setSpacing(12)
 
-        oc_title = QLabel("🎨 轮播壁纸来源", opt_card)
+        oc_title = QLabel("轮播壁纸来源", opt_card)
         font = oc_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -275,9 +280,10 @@ class SchedulerPage(QWidget):
 
     def _update_status_ui(self, is_running: bool) -> None:
         if is_running:
-            self.status_title.setText("自动轮播状态: 🟢 运行中")
-            self.status_title.setStyleSheet("color: #10B981; font-weight: bold;")
-            self.toggle_btn.setText("⏸ 暂停自动换壁纸")
+            self.status_title.setText("自动轮播状态: 运行中")
+            self.status_title.setStyleSheet("color: #059669; font-weight: bold;")
+            self.toggle_btn.setText("暂停自动换壁纸")
+            self.toggle_btn.setIcon(create_icon("pause", color="#FFFFFF", size=16))
             self.toggle_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #EF4444;
@@ -289,9 +295,10 @@ class SchedulerPage(QWidget):
                 QPushButton:hover { background-color: #DC2626; }
             """)
         else:
-            self.status_title.setText("自动轮播状态: ⏸️ 已暂停")
+            self.status_title.setText("自动轮播状态: 已暂停")
             self.status_title.setStyleSheet("color: #64748B; font-weight: bold;")
-            self.toggle_btn.setText("▶ 开启自动换壁纸")
+            self.toggle_btn.setText("开启自动换壁纸")
+            self.toggle_btn.setIcon(create_icon("play", color="#FFFFFF", size=16))
             self.toggle_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #0078D4;

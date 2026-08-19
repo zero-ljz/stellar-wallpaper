@@ -126,6 +126,8 @@ class WallpaperApiClient:
         # Check if keyword matches a category directly
         for cat in CATEGORIES:
             if keyword in cat["name"] or cat["name"] in keyword:
+                if cat["id"] == "latest":
+                    return self.get_latest_wallpapers(start, count)
                 return self.get_category_wallpapers(cat["id"], start, count)
 
         encoded_kw = urllib.parse.quote(keyword)
@@ -225,12 +227,18 @@ class WallpaperApiClient:
 
         # 360 categories have many items; pick a random offset between 0 and 150
         random_start = random.randint(0, 150)
-        page = self.get_category_wallpapers(category_id, start=random_start, count=20)
+        if str(category_id) == "latest":
+            page = self.get_latest_wallpapers(start=random_start, count=20)
+        else:
+            page = self.get_category_wallpapers(category_id, start=random_start, count=20)
         items = page.get("items", [])
 
         if not items:
             # Fallback: query from start=0
-            page = self.get_category_wallpapers(category_id, start=0, count=20)
+            if str(category_id) == "latest":
+                page = self.get_latest_wallpapers(start=0, count=20)
+            else:
+                page = self.get_category_wallpapers(category_id, start=0, count=20)
             items = page.get("items", [])
 
         if not items:

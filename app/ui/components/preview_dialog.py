@@ -26,12 +26,18 @@ from ...core.api_client import api_client
 from ...core.cache_manager import cache_mgr
 from ...core.database import db
 from ...core.image_loader import image_loader
+from ..icons import create_icon
+from .message_box import force_window_light_mode, show_info, show_success, show_warning
 
+
+def _extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
+    wid = str(item_data.get("wallpaper_id") or item_data.get("id") or "")
+    url = str(item_data.get("url") or item_data.get("url_mid") or item_data.get("thumb_url") or "")
+    return wid, url
 
 
 class PreviewDialog(QDialog):
     """High-resolution wallpaper preview modal dialog."""
-
 
     apply_requested = Signal(dict)
 
@@ -121,34 +127,43 @@ class PreviewDialog(QDialog):
             clean_tag = tag.replace("_360Wallpaper_", "").replace("_category_", "").replace("_", " ").strip()
             sidebar_layout.addWidget(self._create_meta_row("标签", clean_tag))
 
-        wid = str(self.item_data.get("id") or self.item_data.get("wallpaper_id") or "")
+        wid = str(self.item_data.get("wallpaper_id") or self.item_data.get("id") or "")
         if wid:
             sidebar_layout.addWidget(self._create_meta_row("壁纸编号", wid))
 
         sidebar_layout.addStretch()
 
         # Action Buttons
-        self.apply_btn = QPushButton("⚡ 立即设为壁纸", sidebar)
+        self.apply_btn = QPushButton("立即设为壁纸", sidebar)
+        self.apply_btn.setIcon(create_icon("desktop", color="#FFFFFF", size=16))
         self.apply_btn.setProperty("class", "PrimaryButton")
         self.apply_btn.clicked.connect(self._on_apply)
         sidebar_layout.addWidget(self.apply_btn)
 
-        self.save_btn = QPushButton("💾 保存到本地", sidebar)
+        self.save_btn = QPushButton("保存到本地", sidebar)
+        self.save_btn.setIcon(create_icon("download", color="#475569", size=16))
         self.save_btn.clicked.connect(self._on_save)
         sidebar_layout.addWidget(self.save_btn)
 
-        is_fav = db.is_favorite(
-            str(self.item_data.get("id") or self.item_data.get("wallpaper_id") or self.item_data.get("url") or "")
+        wid, url = _extract_item_ids(self.item_data)
+        is_fav = db.is_favorite(wid, url)
+        self.fav_btn = QPushButton("取消收藏" if is_fav else "添加到收藏", sidebar)
+        self.fav_btn.setIcon(
+            create_icon("star_filled" if is_fav else "star", color="#F59E0B" if is_fav else "#475569", size=16)
         )
-        self.fav_btn = QPushButton("★ 取消收藏" if is_fav else "☆ 添加到收藏", sidebar)
         self.fav_btn.clicked.connect(self._on_toggle_fav)
         sidebar_layout.addWidget(self.fav_btn)
 
         self.close_btn = QPushButton("关闭预览", sidebar)
+        self.close_btn.setIcon(create_icon("close", color="#475569", size=14))
         self.close_btn.clicked.connect(self.close)
         sidebar_layout.addWidget(self.close_btn)
 
         layout.addWidget(sidebar)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        force_window_light_mode(int(self.winId()))
 
     def _create_meta_row(self, label: str, value: str) -> QWidget:
         w = QWidget(self)
@@ -157,22 +172,19 @@ class PreviewDialog(QDialog):
         hl.setSpacing(10)
         lbl = QLabel(label, w)
         lbl.setFixedWidth(62)
-        lbl.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+        lbl.setStyleSheet("color: #475569; font-size: 12px; border: none; background: transparent;")
         val = QLabel(value, w)
         val.setWordWrap(True)
-        val.setStyleSheet("color: #0B0F19; font-weight: 650; font-size: 12px; border: none; background: transparent;")
+        val.setStyleSheet("color: #0B0F19; font-weight: bold; font-size: 12px; border: none; background: transparent;")
         val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         hl.addWidget(lbl)
         hl.addWidget(val, 1)
         return w
 
     def _load_image(self) -> None:
-
         url = self.item_data.get("url") or self.item_data.get("url_mid") or self.item_data.get("thumb_url") or ""
         local_path = self.item_data.get("local_path", "")
         image_loader.load_full_image(url, local_path, self._on_image_loaded)
-
-
 
     def _on_image_loaded(self, pix: QPixmap) -> None:
         if not pix.isNull():
@@ -210,19 +222,21 @@ class PreviewDialog(QDialog):
         if cached.exists():
             import shutil
             shutil.copy2(cached, target)
-            QMessageBox.information(self, "保存成功", f"壁纸已保存到:\n{target}")
+            show_success(self, "保存成功", f"壁纸已保存到:\n{target}")
         else:
             ok = api_client.download_image(url, target)
             if ok:
-                QMessageBox.information(self, "保存成功", f"壁纸已保存到:\n{target}")
+                show_success(self, "保存成功", f"壁纸已保存到:\n{target}")
             else:
-                QMessageBox.warning(self, "保存失败", "保存壁纸失败，请重试")
+                show_warning(self, "保存失败", "保存壁纸失败，请重试")
 
     def _on_toggle_fav(self) -> None:
-        wid = str(self.item_data.get("id") or self.item_data.get("wallpaper_id") or self.item_data.get("url") or "")
-        if db.is_favorite(wid):
-            db.remove_favorite(wid)
-            self.fav_btn.setText("☆ 添加到收藏")
+        wid, url = _extract_item_ids(self.item_data)
+        if db.is_favorite(wid, url):
+            db.remove_favorite(wid, url)
+            self.fav_btn.setText("添加到收藏")
+            self.fav_btn.setIcon(create_icon("star", color="#475569", size=16))
         else:
             db.add_favorite(self.item_data)
-            self.fav_btn.setText("★ 取消收藏")
+            self.fav_btn.setText("取消收藏")
+            self.fav_btn.setIcon(create_icon("star_filled", color="#F59E0B", size=16))

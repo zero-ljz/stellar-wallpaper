@@ -24,8 +24,8 @@ from ..constants import APP_NAME, APP_VERSION
 from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
 from .components.tray_icon import AppTrayIcon, create_default_tray_icon
-
 from .icons import create_icon
+from .theme import force_window_light_mode
 from .pages.favorites_page import FavoritesPage
 from .pages.gallery_page import GalleryPage
 from .pages.history_page import HistoryPage
@@ -120,6 +120,7 @@ class MainWindow(ModernWindow):
     def _init_tray(self) -> None:
         self.tray_icon = AppTrayIcon(self)
         self.tray_icon.show_main_window_requested.connect(self._show_and_activate)
+        self.tray_icon.open_settings_requested.connect(self._open_settings)
         self.tray_icon.switch_next_requested.connect(self._trigger_next_wallpaper)
         self.tray_icon.quit_requested.connect(self.force_quit)
         self.tray_icon.show()
@@ -154,6 +155,13 @@ class MainWindow(ModernWindow):
         self.activateWindow()
         self.raise_()
 
+    def _open_settings(self) -> None:
+        for i in range(self.nav_view.count()):
+            if self.nav_view.widget(i) == self.settings_page:
+                self.nav_view.setCurrentIndex(i)
+                break
+        self._show_and_activate()
+
     def force_quit(self) -> None:
         """Explicitly quit the application without minimizing to tray."""
         self._is_quitting = True
@@ -162,6 +170,10 @@ class MainWindow(ModernWindow):
         scheduler.stop()
         self.close()
         QApplication.quit()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        force_window_light_mode(int(self.winId()))
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if getattr(self, "_is_quitting", False):

@@ -28,30 +28,33 @@ from ...config import config
 from ...constants import CATEGORIES, CATEGORY_MAP
 from ...core.database import db
 from ...core.scheduler import scheduler
+from ..components.message_box import show_info, show_success, show_warning
+from ..components.wallpaper_card import extract_item_ids as _extract_item_ids
+from ..icons import create_fluent_icon, create_icon
 
-
-# Category Emoji/Icons for visual polish
+# Microsoft Fluent Category Vector Icons
 CATEGORY_ICONS = {
-    "36": "✨",  # 4K专区
-    "9": "🏔️",  # 风景大片
-    "26": "🎨",  # 动漫卡通
-    "5": "🎮",  # 游戏壁纸
-    "12": "🏎️",  # 汽车天下
-    "14": "🐱",  # 萌宠动物
-    "6": "💃",  # 美女模特
-    "10": "🕶️",  # 炫酷时尚
-    "15": "🍃",  # 小清新
-    "7": "🎬",  # 影视剧照
-    "30": "💖",  # 爱情美图
-    "11": "🌟",  # 明星风尚
-    "22": "🚀",  # 军事天地
-    "16": "⚽",  # 劲爆体育
-    "35": "✍️",  # 文字控
+    "latest": "cat_latest",
+    "36": "cat_4k",
+    "9": "cat_landscape",
+    "26": "cat_anime",
+    "5": "cat_game",
+    "12": "cat_car",
+    "14": "cat_pet",
+    "6": "cat_beauty",
+    "10": "cat_fashion",
+    "15": "cat_fresh",
+    "7": "cat_movie",
+    "30": "cat_love",
+    "11": "cat_star",
+    "22": "cat_military",
+    "16": "cat_sports",
+    "35": "cat_text",
 }
 
 
 class CategoryChipButton(QPushButton):
-    """Modern interactive toggle chip for category selection."""
+    """Modern interactive toggle chip for category selection with Fluent vector icons."""
 
     def __init__(self, cat_id: str, cat_name: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -60,21 +63,25 @@ class CategoryChipButton(QPushButton):
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(38)
-        self._update_text()
+        self._update_style()
         self.toggled.connect(self._on_toggled)
 
-    def _update_text(self) -> None:
-        icon = CATEGORY_ICONS.get(self.cat_id, "🖼️")
-        check = "✓ " if self.isChecked() else ""
-        self.setText(f"{icon}  {self.cat_name}  {check}".strip())
-        if self.isChecked():
+    def _update_style(self) -> None:
+        icon_key = CATEGORY_ICONS.get(self.cat_id, "gallery")
+        is_checked = self.isChecked()
+        color = "#0078D4" if is_checked else "#475569"
+        self.setIcon(create_fluent_icon(icon_key, color=color, size=16))
+        self.setIconSize(QSize(16, 16))
+        self.setText(f" {self.cat_name}")
+
+        if is_checked:
             self.setStyleSheet("""
                 QPushButton {
                     background-color: #EFF6FF;
                     border: 1.5px solid #0078D4;
                     border-radius: 8px;
                     color: #0067B8;
-                    font-weight: 750;
+                    font-weight: bold;
                     font-size: 13px;
                     padding: 0 12px;
                     text-align: left;
@@ -90,7 +97,7 @@ class CategoryChipButton(QPushButton):
                     border: 1px solid #E2E8F0;
                     border-radius: 8px;
                     color: #1E293B;
-                    font-weight: 650;
+                    font-weight: normal;
                     font-size: 13px;
                     padding: 0 12px;
                     text-align: left;
@@ -103,7 +110,7 @@ class CategoryChipButton(QPushButton):
             """)
 
     def _on_toggled(self, _checked: bool) -> None:
-        self._update_text()
+        self._update_style()
 
 
 class RandomSwitcherPage(QWidget):
@@ -154,7 +161,7 @@ class RandomSwitcherPage(QWidget):
         title_box = QVBoxLayout()
         title_box.setSpacing(3)
 
-        title_lbl = QLabel("🔀 多分类混合随机换壁纸", hero_card)
+        title_lbl = QLabel("多分类混合随机换壁纸", hero_card)
         font = title_lbl.font()
         font.setPointSize(16)
         font.setBold(True)
@@ -169,7 +176,8 @@ class RandomSwitcherPage(QWidget):
 
         hero_top.addStretch()
 
-        self.switch_btn = QPushButton("⚡ 立即随机换壁纸", hero_card)
+        self.switch_btn = QPushButton("立即随机换壁纸", hero_card)
+        self.switch_btn.setIcon(create_icon("shuffle", color="#FFFFFF", size=18))
         self.switch_btn.setProperty("class", "PrimaryButton")
         self.switch_btn.setFixedHeight(42)
         font = self.switch_btn.font()
@@ -224,7 +232,7 @@ class RandomSwitcherPage(QWidget):
 
         # Category Header with quick select tools
         cat_hdr = QHBoxLayout()
-        cat_title = QLabel("🎯 随机抽选分类池", cat_card)
+        cat_title = QLabel("随机抽选分类池", cat_card)
         font = cat_title.font()
         font.setBold(True)
         font.setPointSize(14)
@@ -232,7 +240,7 @@ class RandomSwitcherPage(QWidget):
         cat_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         cat_hdr.addWidget(cat_title)
 
-        self.pool_count_badge = QLabel("已选 15 个分类", cat_card)
+        self.pool_count_badge = QLabel(f"已选 {len(CATEGORIES)} 个分类", cat_card)
         self.pool_count_badge.setStyleSheet("""
             background-color: #EFF6FF;
             color: #0078D4;
@@ -247,24 +255,27 @@ class RandomSwitcherPage(QWidget):
         cat_hdr.addStretch()
 
         self.select_all_btn = QPushButton("全选", cat_card)
+        self.select_all_btn.setIcon(create_icon("check", color="#475569", size=14))
         self.select_all_btn.clicked.connect(self._select_all_categories)
         cat_hdr.addWidget(self.select_all_btn)
 
         self.clear_all_btn = QPushButton("清空", cat_card)
+        self.clear_all_btn.setIcon(create_icon("close", color="#475569", size=14))
         self.clear_all_btn.clicked.connect(self._clear_all_categories)
         cat_hdr.addWidget(self.clear_all_btn)
 
-        self.recommend_btn = QPushButton("✨ 精选组合 (4K+风景+动漫)", cat_card)
+        self.recommend_btn = QPushButton("精选组合 (4K+风景+动漫)", cat_card)
+        self.recommend_btn.setIcon(create_icon("sparkle", color="#475569", size=14))
         self.recommend_btn.clicked.connect(self._select_recommended_categories)
         cat_hdr.addWidget(self.recommend_btn)
 
         cat_vbox.addLayout(cat_hdr)
 
-        # Grid of 15 Category Chip buttons (5 columns x 3 rows)
+        # Grid of 16 Category Chip buttons (4 columns x 4 rows)
         cat_grid = QGridLayout()
         cat_grid.setSpacing(10)
 
-        cols = 5
+        cols = 4
         for idx, cat in enumerate(CATEGORIES):
             r = idx // cols
             c = idx % cols
@@ -331,15 +342,18 @@ class RandomSwitcherPage(QWidget):
         tools_row = QHBoxLayout()
         tools_row.setSpacing(8)
 
-        self.fav_btn = QPushButton("⭐ 收藏当前壁纸", cur_card)
+        self.fav_btn = QPushButton("收藏当前壁纸", cur_card)
+        self.fav_btn.setIcon(create_icon("star", color="#475569", size=16))
         self.fav_btn.clicked.connect(self._toggle_current_favorite)
         tools_row.addWidget(self.fav_btn)
 
-        self.save_btn = QPushButton("💾 保存原图", cur_card)
+        self.save_btn = QPushButton("保存原图", cur_card)
+        self.save_btn.setIcon(create_icon("download", color="#475569", size=16))
         self.save_btn.clicked.connect(self._save_current_wallpaper)
         tools_row.addWidget(self.save_btn)
 
-        self.open_loc_btn = QPushButton("📂 打开所在目录", cur_card)
+        self.open_loc_btn = QPushButton("打开所在目录", cur_card)
+        self.open_loc_btn.setIcon(create_icon("folder", color="#475569", size=16))
         self.open_loc_btn.clicked.connect(self._open_current_location)
         tools_row.addWidget(self.open_loc_btn)
 
@@ -361,7 +375,7 @@ class RandomSwitcherPage(QWidget):
         for cid, chip in self._category_chips.items():
             chip.blockSignals(True)
             chip.setChecked(cid in selected)
-            chip._update_text()
+            chip._update_style()
             chip.blockSignals(False)
         self._update_pool_count_badge()
 
@@ -415,17 +429,19 @@ class RandomSwitcherPage(QWidget):
 
     def _on_wallpaper_applied(self, item: dict[str, Any]) -> None:
         self.switch_btn.setEnabled(True)
-        self.switch_btn.setText("⚡ 立即随机换壁纸")
+        self.switch_btn.setText("立即随机换壁纸")
+        self.switch_btn.setIcon(create_icon("shuffle", color="#FFFFFF", size=18))
         self.progress_bar.setValue(100)
-        self.prog_stage_lbl.setText("🎉 壁纸更换成功！")
+        self.prog_stage_lbl.setText("壁纸更换成功！")
         self.prog_pct_lbl.setText("100%")
         self._current_wallpaper = item
         self._update_current_display(item)
 
     def _on_switch_error(self, err: str) -> None:
         self.switch_btn.setEnabled(True)
-        self.switch_btn.setText("⚡ 立即随机换壁纸")
-        self.prog_stage_lbl.setText(f"❌ {err}")
+        self.switch_btn.setText("立即随机换壁纸")
+        self.switch_btn.setIcon(create_icon("shuffle", color="#FFFFFF", size=18))
+        self.prog_stage_lbl.setText(f"更换失败: {err}")
         self.prog_pct_lbl.setText("")
 
     def _update_current_display(self, item: dict[str, Any]) -> None:
@@ -451,27 +467,32 @@ class RandomSwitcherPage(QWidget):
                 self.preview_image_lbl.setPixmap(scaled)
 
         # Update fav button
-        wid = str(item.get("id") or item.get("wallpaper_id") or item.get("url") or "")
-        is_fav = db.is_favorite(wid)
-        self.fav_btn.setText("★ 取消收藏" if is_fav else "⭐ 收藏当前壁纸")
+        wid, url = _extract_item_ids(item)
+        is_fav = db.is_favorite(wid, url)
+        self.fav_btn.setText("取消收藏" if is_fav else "收藏当前壁纸")
+        self.fav_btn.setIcon(
+            create_icon("star_filled" if is_fav else "star", color="#F59E0B" if is_fav else "#475569", size=16)
+        )
 
     def _toggle_current_favorite(self) -> None:
         if not self._current_wallpaper:
             return
-        wid = str(self._current_wallpaper.get("id") or self._current_wallpaper.get("wallpaper_id") or self._current_wallpaper.get("url") or "")
-        if db.is_favorite(wid):
-            db.remove_favorite(wid)
-            self.fav_btn.setText("⭐ 收藏当前壁纸")
+        wid, url = _extract_item_ids(self._current_wallpaper)
+        if db.is_favorite(wid, url):
+            db.remove_favorite(wid, url)
+            self.fav_btn.setText("收藏当前壁纸")
+            self.fav_btn.setIcon(create_icon("star", color="#475569", size=16))
         else:
             db.add_favorite(self._current_wallpaper)
-            self.fav_btn.setText("★ 取消收藏")
+            self.fav_btn.setText("取消收藏")
+            self.fav_btn.setIcon(create_icon("star_filled", color="#F59E0B", size=16))
 
     def _save_current_wallpaper(self) -> None:
         if not self._current_wallpaper:
             return
         local = self._current_wallpaper.get("local_path")
         if not local or not Path(local).exists():
-            QMessageBox.warning(self, "提示", "未找到本地壁纸文件")
+            show_warning(self, "提示", "未找到本地壁纸文件")
             return
 
         save_dir = Path(config.download_dir)
@@ -480,7 +501,7 @@ class RandomSwitcherPage(QWidget):
 
         import shutil
         shutil.copy2(local, target)
-        QMessageBox.information(self, "保存成功", f"壁纸已成功保存到:\n{target}")
+        show_success(self, "保存成功", f"壁纸已成功保存到:\n{target}")
 
     def _open_current_location(self) -> None:
         if not self._current_wallpaper:

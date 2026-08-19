@@ -1,7 +1,8 @@
-"""Polished favorites collection page."""
+"""Polished favorites collection page with modern pagination."""
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 from typing import Any
@@ -12,21 +13,23 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from ...config import config
 from ...core.database import db
+from ..components.message_box import show_info
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard
+from ..icons import create_fluent_pixmap, create_icon
 
 
 class FavoritesPage(QWidget):
-    """Page displaying user's starred/favorited wallpapers."""
+    """Page displaying user's starred/favorited wallpapers with high-performance pagination."""
 
     apply_wallpaper_requested = Signal(dict)
 
@@ -34,9 +37,13 @@ class FavoritesPage(QWidget):
         super().__init__(parent)
         self._cards: list[WallpaperCard] = []
         self._current_cols = 0
+        self._page_size = 24
+        self._current_page = 1
+        self._total_count = 0
+        self._total_pages = 1
 
         self._init_ui()
-        self.refresh()
+        self.load_page(1)
 
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -49,7 +56,7 @@ class FavoritesPage(QWidget):
         title_box.setSpacing(3)
 
         title_row = QHBoxLayout()
-        title_lbl = QLabel("❤️ 我的收藏", self)
+        title_lbl = QLabel("我的收藏", self)
         font = title_lbl.font()
         font.setPointSize(16)
         font.setBold(True)
@@ -78,20 +85,23 @@ class FavoritesPage(QWidget):
 
         header.addStretch()
 
-        self.random_fav_btn = QPushButton("⚡ 从收藏中随机应用", self)
+        self.random_fav_btn = QPushButton("从收藏中随机应用", self)
+        self.random_fav_btn.setIcon(create_icon("play", color="#FFFFFF", size=16))
         self.random_fav_btn.setProperty("class", "PrimaryButton")
         self.random_fav_btn.setFixedHeight(36)
         self.random_fav_btn.clicked.connect(self._apply_random_favorite)
         header.addWidget(self.random_fav_btn)
 
-        self.open_dir_btn = QPushButton("📂 打开保存目录", self)
+        self.open_dir_btn = QPushButton("打开保存目录", self)
+        self.open_dir_btn.setIcon(create_icon("folder", color="#475569", size=16))
         self.open_dir_btn.setFixedHeight(36)
         self.open_dir_btn.clicked.connect(self._open_download_dir)
         header.addWidget(self.open_dir_btn)
 
-        self.refresh_btn = QPushButton("🔄 刷新", self)
+        self.refresh_btn = QPushButton("刷新", self)
+        self.refresh_btn.setIcon(create_icon("refresh", color="#475569", size=16))
         self.refresh_btn.setFixedHeight(36)
-        self.refresh_btn.clicked.connect(self.refresh)
+        self.refresh_btn.clicked.connect(lambda: self.load_page(self._current_page))
         header.addWidget(self.refresh_btn)
 
         layout.addLayout(header)
@@ -125,11 +135,9 @@ class FavoritesPage(QWidget):
         empty_layout.setContentsMargins(40, 60, 40, 60)
         empty_layout.setSpacing(10)
 
-        empty_icon = QLabel("🌟", self.empty_card)
+        empty_icon = QLabel(self.empty_card)
         empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = empty_icon.font()
-        font.setPointSize(36)
-        empty_icon.setFont(font)
+        empty_icon.setPixmap(create_fluent_pixmap("heart", color="#FDA4AF", size=48))
         empty_icon.setStyleSheet("border: none; background: transparent;")
         empty_layout.addWidget(empty_icon)
 
@@ -142,13 +150,57 @@ class FavoritesPage(QWidget):
         empty_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         empty_layout.addWidget(empty_title)
 
-        empty_desc = QLabel("在「探索发现」画廊或「随机切换」页面中，点击卡片右上角的 ★ 即可将喜欢的美图加入收藏夹", self.empty_card)
+        empty_desc = QLabel("在「探索发现」画廊或「随机切换」页面中，点击卡片右上角的星标即可将喜欢的美图加入收藏夹", self.empty_card)
         empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_desc.setStyleSheet("color: #475569; font-weight: 600; font-size: 13px; border: none; background: transparent;")
         empty_layout.addWidget(empty_desc)
 
         layout.addWidget(self.empty_card)
         self.empty_card.hide()
+
+        # Bottom Modern Pagination Bar
+        self.page_bar_widget = QWidget(self)
+        page_bar = QHBoxLayout(self.page_bar_widget)
+        page_bar.setContentsMargins(4, 4, 4, 4)
+        page_bar.setSpacing(10)
+        page_bar.addStretch()
+
+        self.prev_btn = QPushButton("上一页", self.page_bar_widget)
+        self.prev_btn.setIcon(create_icon("chevron_left", color="#475569", size=16))
+        self.prev_btn.clicked.connect(self._prev_page)
+        page_bar.addWidget(self.prev_btn)
+
+        self.page_info_label = QLabel("第 1 / 1 页 (共 0 张)", self.page_bar_widget)
+        self.page_info_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
+        page_bar.addWidget(self.page_info_label)
+
+        self.next_btn = QPushButton("下一页", self.page_bar_widget)
+        self.next_btn.setIcon(create_icon("chevron_right", color="#475569", size=16))
+        self.next_btn.clicked.connect(self._next_page)
+        page_bar.addWidget(self.next_btn)
+
+        page_bar.addSpacing(16)
+
+        jump_lbl = QLabel("跳至", self.page_bar_widget)
+        jump_lbl.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
+        page_bar.addWidget(jump_lbl)
+
+        self.jump_spinbox = QSpinBox(self.page_bar_widget)
+        self.jump_spinbox.setMinimum(1)
+        self.jump_spinbox.setMaximum(1)
+        self.jump_spinbox.setValue(1)
+        self.jump_spinbox.setFixedWidth(72)
+        self.jump_spinbox.setFixedHeight(34)
+        page_bar.addWidget(self.jump_spinbox)
+
+        self.jump_btn = QPushButton("跳转", self.page_bar_widget)
+        self.jump_btn.setIcon(create_icon("arrow_jump", color="#475569", size=14))
+        self.jump_btn.setFixedHeight(34)
+        self.jump_btn.clicked.connect(self._jump_page)
+        page_bar.addWidget(self.jump_btn)
+
+        page_bar.addStretch()
+        layout.addWidget(self.page_bar_widget)
 
     def _calculate_cols(self) -> int:
         vp_width = self.scroll.viewport().width()
@@ -175,7 +227,12 @@ class FavoritesPage(QWidget):
             col = idx % cols
             self.grid.addWidget(card, row, col)
 
-    def refresh(self) -> None:
+    def load_page(self, page_num: int) -> None:
+        self._total_count = db.count_favorites()
+        self._total_pages = max(1, math.ceil(self._total_count / self._page_size))
+        self._current_page = max(1, min(page_num, self._total_pages))
+        offset = (self._current_page - 1) * self._page_size
+
         for card in self._cards:
             card.deleteLater()
         self._cards.clear()
@@ -185,17 +242,28 @@ class FavoritesPage(QWidget):
                 item.widget().deleteLater()
         self._current_cols = 0
 
-        items = db.get_favorites(limit=200)
-        self.count_badge.setText(f"{len(items)} 张")
+        self.count_badge.setText(f"{self._total_count} 张")
 
-        if not items:
+        if self._total_count == 0:
             self.empty_card.show()
             self.random_fav_btn.setEnabled(False)
+            self.page_bar_widget.hide()
             return
 
         self.empty_card.hide()
         self.random_fav_btn.setEnabled(True)
+        self.page_bar_widget.show()
 
+        # Update pagination controls
+        self.page_info_label.setText(
+            f"第 {self._current_page} / {self._total_pages} 页 (共 {self._total_count} 张)"
+        )
+        self.prev_btn.setEnabled(self._current_page > 1)
+        self.next_btn.setEnabled(self._current_page < self._total_pages)
+        self.jump_spinbox.setMaximum(self._total_pages)
+        self.jump_spinbox.setValue(self._current_page)
+
+        items = db.get_favorites(limit=self._page_size, offset=offset)
         for item_data in items:
             card = WallpaperCard(item_data, self.container)
             card.apply_requested.connect(self.apply_wallpaper_requested.emit)
@@ -204,6 +272,22 @@ class FavoritesPage(QWidget):
             self._cards.append(card)
 
         self._relayout_grid(force=True)
+
+    def refresh(self) -> None:
+        self.load_page(self._current_page)
+
+    def _prev_page(self) -> None:
+        if self._current_page > 1:
+            self.load_page(self._current_page - 1)
+
+    def _next_page(self) -> None:
+        if self._current_page < self._total_pages:
+            self.load_page(self._current_page + 1)
+
+    def _jump_page(self) -> None:
+        target = self.jump_spinbox.value()
+        if 1 <= target <= self._total_pages:
+            self.load_page(target)
 
     def _on_preview(self, item_data: dict[str, Any]) -> None:
         dialog = PreviewDialog(item_data, self)
@@ -216,7 +300,7 @@ class FavoritesPage(QWidget):
         if fav:
             self.apply_wallpaper_requested.emit(fav)
         else:
-            QMessageBox.information(self, "提示", "收藏夹为空，无法设置壁纸")
+            show_info(self, "提示", "收藏夹为空，无法设置壁纸")
 
     def _open_download_dir(self) -> None:
         path = Path(config.download_dir)

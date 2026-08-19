@@ -100,14 +100,17 @@ class DatabaseManager:
                 )
                 return cur.lastrowid or 0
 
-    def get_history(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    def get_history(self, limit: int | None = None, offset: int = 0) -> list[dict[str, Any]]:
         conn = self._get_connection()
-        cur = conn.execute(
-            """
-            SELECT * FROM history ORDER BY id DESC LIMIT ? OFFSET ?
-            """,
-            (limit, offset),
-        )
+        if limit is not None and limit > 0:
+            cur = conn.execute(
+                """
+                SELECT * FROM history ORDER BY id DESC LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+        else:
+            cur = conn.execute("SELECT * FROM history ORDER BY id DESC")
         return [dict(row) for row in cur.fetchall()]
 
     def clear_history(self) -> None:
@@ -126,6 +129,7 @@ class DatabaseManager:
         with self._lock:
             conn = self._get_connection()
             try:
+                wid = str(item.get("wallpaper_id") or item.get("id") or item.get("url") or "")
                 with conn:
                     conn.execute(
                         """
@@ -135,7 +139,7 @@ class DatabaseManager:
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
-                            str(item.get("id") or item.get("wallpaper_id") or item.get("url") or ""),
+                            wid,
                             item.get("title") or item.get("tag") or "壁纸",
                             item.get("url") or "",
                             item.get("thumb_url") or item.get("url_thumb") or item.get("url") or "",
@@ -152,41 +156,63 @@ class DatabaseManager:
                 print(f"Failed to add favorite: {e}")
                 return False
 
-    def remove_favorite(self, wallpaper_id_or_url: str) -> bool:
+    def remove_favorite(self, wallpaper_id_or_url: str = "", url: str = "") -> bool:
+        keys = [str(k).strip() for k in (wallpaper_id_or_url, url) if str(k).strip()]
+        if not keys:
+            return False
         with self._lock:
             conn = self._get_connection()
             with conn:
-                cur = conn.execute(
-                    "DELETE FROM favorites WHERE wallpaper_id = ? OR url = ?",
-                    (wallpaper_id_or_url, wallpaper_id_or_url),
-                )
+                placeholders = " OR ".join(["wallpaper_id = ? OR url = ? OR id = ?"] * len(keys))
+                params = []
+                for k in keys:
+                    params.extend([k, k, k])
+                cur = conn.execute(f"DELETE FROM favorites WHERE {placeholders}", params)
                 return cur.rowcount > 0
 
-    def is_favorite(self, wallpaper_id_or_url: str) -> bool:
-        if not wallpaper_id_or_url:
+    def is_favorite(self, wallpaper_id_or_url: str = "", url: str = "") -> bool:
+        keys = [str(k).strip() for k in (wallpaper_id_or_url, url) if str(k).strip()]
+        if not keys:
             return False
         conn = self._get_connection()
-        cur = conn.execute(
-            "SELECT 1 FROM favorites WHERE wallpaper_id = ? OR url = ? LIMIT 1",
-            (wallpaper_id_or_url, wallpaper_id_or_url),
-        )
+        placeholders = " OR ".join(["wallpaper_id = ? OR url = ? OR id = ?"] * len(keys))
+        params = []
+        for k in keys:
+            params.extend([k, k, k])
+        cur = conn.execute(f"SELECT 1 FROM favorites WHERE {placeholders} LIMIT 1", params)
         return cur.fetchone() is not None
 
-    def get_favorites(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    def get_favorites(self, limit: int | None = None, offset: int = 0) -> list[dict[str, Any]]:
         conn = self._get_connection()
-        cur = conn.execute(
-            """
-            SELECT * FROM favorites ORDER BY id DESC LIMIT ? OFFSET ?
-            """,
-            (limit, offset),
-        )
-        return [dict(row) for row in cur.fetchall()]
+        if limit is not None and limit > 0:
+            cur = conn.execute(
+                """
+                SELECT * FROM favorites ORDER BY id DESC LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+        else:
+            cur = conn.execute("SELECT * FROM favorites ORDER BY id DESC")
+        items = []
+        for row in cur.fetchall():
+            d = dict(row)
+            wid = d.get("wallpaper_id")
+            if wid:
+                d["id"] = wid
+            items.append(d)
+        return items
 
     def get_random_favorite(self) -> dict[str, Any] | None:
         conn = self._get_connection()
         cur = conn.execute("SELECT * FROM favorites ORDER BY RANDOM() LIMIT 1")
         row = cur.fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        d = dict(row)
+        wid = d.get("wallpaper_id")
+        if wid:
+            d["id"] = wid
+        return d
 
     def count_favorites(self) -> int:
         conn = self._get_connection()

@@ -10,7 +10,7 @@ from app.ui.theme import apply_fusion_light_theme
 
 
 def main() -> int:
-    # Enable High DPI scaling
+    # Enable High DPI scaling and crisp pixmaps
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )

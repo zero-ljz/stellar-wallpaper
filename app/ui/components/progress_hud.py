@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 )
 
 
+from ..icons import create_fluent_pixmap, create_icon
+
+
 class ProgressHUD(QFrame):
     """A sleek floating progress HUD / notification card for status and progress feedback."""
 
@@ -33,10 +36,8 @@ class ProgressHUD(QFrame):
         """)
 
         self._init_ui()
-        self._auto_hide_timer = QTimer(self)
-        self._auto_hide_timer.setSingleShot(True)
-        self._auto_hide_timer.timeout.connect(self.hide_animated)
-        self.hide()
+        self._init_animation()
+        self._init_timer()
 
     def _init_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -47,10 +48,8 @@ class ProgressHUD(QFrame):
         header = QHBoxLayout()
         header.setSpacing(8)
 
-        self.icon_label = QLabel("⚡", self)
-        font = self.icon_label.font()
-        font.setPointSize(12)
-        self.icon_label.setFont(font)
+        self.icon_label = QLabel(self)
+        self.icon_label.setPixmap(create_fluent_pixmap("sparkle_filled", color="#0078D4", size=18))
 
         self.message_label = QLabel("准备更换壁纸...", self)
         font = self.message_label.font()
@@ -58,11 +57,12 @@ class ProgressHUD(QFrame):
         self.message_label.setFont(font)
         self.message_label.setStyleSheet("color: #1F2937;")
 
-        self.close_btn = QPushButton("✕", self)
+        self.close_btn = QPushButton(self)
+        self.close_btn.setIcon(create_icon("close", color="#9CA3AF", size=12))
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setStyleSheet("""
-            QPushButton { border: none; background: transparent; color: #9CA3AF; font-size: 11px; }
-            QPushButton:hover { color: #1F2937; background: #F3F4F6; border-radius: 4px; }
+            QPushButton { border: none; background: transparent; }
+            QPushButton:hover { background: #F3F4F6; border-radius: 4px; }
         """)
         self.close_btn.clicked.connect(self.hide_animated)
 
@@ -95,7 +95,7 @@ class ProgressHUD(QFrame):
     def show_progress(self, message: str, percent: int = 0, subtext: str = "") -> None:
         """Show HUD in active progress state."""
         self._auto_hide_timer.stop()
-        self.icon_label.setText("⏳")
+        self.icon_label.setPixmap(create_fluent_pixmap("sparkle_filled", color="#0078D4", size=18))
         self.message_label.setText(message)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(percent)
@@ -113,7 +113,7 @@ class ProgressHUD(QFrame):
 
     def show_success(self, message: str, subtext: str = "", auto_hide_ms: int = 3500) -> None:
         """Show HUD in success state and auto-dismiss."""
-        self.icon_label.setText("✅")
+        self.icon_label.setPixmap(create_fluent_pixmap("check_circle_filled", color="#10B981", size=18))
         self.message_label.setText(message)
         self.progress_bar.setValue(100)
         self.progress_bar.setVisible(False)
@@ -132,7 +132,7 @@ class ProgressHUD(QFrame):
 
     def show_error(self, message: str, subtext: str = "", auto_hide_ms: int = 5000) -> None:
         """Show HUD in error state and auto-dismiss."""
-        self.icon_label.setText("⚠️")
+        self.icon_label.setPixmap(create_fluent_pixmap("warning_filled", color="#EF4444", size=18))
         self.message_label.setText(message)
         self.progress_bar.setVisible(False)
         self.subtext_label.setVisible(bool(subtext))

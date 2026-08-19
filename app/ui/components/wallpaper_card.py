@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -21,6 +20,14 @@ from ...config import config
 from ...core.api_client import api_client
 from ...core.database import db
 from ...core.image_loader import image_loader
+from ..icons import create_icon
+from .message_box import show_info, show_success, show_warning
+
+
+def extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
+    wid = str(item_data.get("wallpaper_id") or item_data.get("id") or "")
+    url = str(item_data.get("url") or item_data.get("url_mid") or item_data.get("thumb_url") or "")
+    return wid, url
 
 
 class WallpaperCard(QFrame):
@@ -40,9 +47,8 @@ class WallpaperCard(QFrame):
 
         self._pixmap: QPixmap | None = None
         self._is_hovered = False
-        self._is_favorited = db.is_favorite(
-            str(self.item_data.get("id") or self.item_data.get("wallpaper_id") or self.item_data.get("url") or "")
-        )
+        wid, url = extract_item_ids(self.item_data)
+        self._is_favorited = db.is_favorite(wid, url)
 
         self._init_ui()
         self._load_thumbnail()
@@ -101,12 +107,12 @@ class WallpaperCard(QFrame):
             """)
             top_row.addWidget(self.res_badge)
 
-
         top_row.addStretch()
 
-        # Favorite star button on top-right
-        self.fav_btn = QPushButton("★" if self._is_favorited else "☆", self.img_container)
-        self.fav_btn.setFixedSize(26, 26)
+        # Favorite star button on top-right (28x28 circular button with vector icon)
+        self.fav_btn = QPushButton(self.img_container)
+        self.fav_btn.setFixedSize(28, 28)
+        self.fav_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_fav_style()
         self.fav_btn.clicked.connect(self._toggle_favorite)
         top_row.addWidget(self.fav_btn)
@@ -122,50 +128,65 @@ class WallpaperCard(QFrame):
 
         self.apply_btn = QPushButton("设为壁纸", self.action_row_widget)
         self.apply_btn.setFixedHeight(28)
+        self.apply_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.apply_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0078D4;
                 color: #FFFFFF;
                 border: none;
-                border-radius: 5px;
+                border-radius: 6px;
                 font-size: 11px;
-                font-weight: 600;
+                font-weight: 700;
                 padding: 4px 10px;
             }
             QPushButton:hover { background-color: #1084D9; }
-            QPushButton:pressed { background-color: #006CBE; }
+            QPushButton:pressed { background-color: #0067B8; }
         """)
         self.apply_btn.clicked.connect(lambda: self.apply_requested.emit(self.item_data))
         action_layout.addWidget(self.apply_btn, 1)
 
-        self.preview_btn = QPushButton("🔍", self.action_row_widget)
-        self.preview_btn.setToolTip("查看大图")
+        self.preview_btn = QPushButton(self.action_row_widget)
+        self.preview_btn.setIcon(create_icon("preview", "#0F172A", 16))
+        self.preview_btn.setToolTip("查看高清大图")
         self.preview_btn.setFixedSize(28, 28)
+        self.preview_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.preview_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(17, 24, 39, 0.8);
-                color: #FFFFFF;
-                border: none;
-                border-radius: 5px;
-                font-size: 12px;
+                background-color: rgba(255, 255, 255, 0.94);
+                border: 1px solid rgba(226, 232, 240, 0.9);
+                border-radius: 6px;
+                padding: 0px;
             }
-            QPushButton:hover { background-color: rgba(17, 24, 39, 0.95); }
+            QPushButton:hover {
+                background-color: #FFFFFF;
+                border-color: #0078D4;
+            }
+            QPushButton:pressed {
+                background-color: #F1F5F9;
+            }
         """)
         self.preview_btn.clicked.connect(lambda: self.preview_requested.emit(self.item_data))
         action_layout.addWidget(self.preview_btn)
 
-        self.download_btn = QPushButton("💾", self.action_row_widget)
-        self.download_btn.setToolTip("保存原图")
+        self.download_btn = QPushButton(self.action_row_widget)
+        self.download_btn.setIcon(create_icon("download", "#0F172A", 16))
+        self.download_btn.setToolTip("保存原图到本地")
         self.download_btn.setFixedSize(28, 28)
+        self.download_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.download_btn.setStyleSheet("""
             QPushButton {
-                background-color: rgba(17, 24, 39, 0.8);
-                color: #FFFFFF;
-                border: none;
-                border-radius: 5px;
-                font-size: 12px;
+                background-color: rgba(255, 255, 255, 0.94);
+                border: 1px solid rgba(226, 232, 240, 0.9);
+                border-radius: 6px;
+                padding: 0px;
             }
-            QPushButton:hover { background-color: rgba(17, 24, 39, 0.95); }
+            QPushButton:hover {
+                background-color: #FFFFFF;
+                border-color: #0078D4;
+            }
+            QPushButton:pressed {
+                background-color: #F1F5F9;
+            }
         """)
         self.download_btn.clicked.connect(self._on_download_clicked)
         action_layout.addWidget(self.download_btn)
@@ -196,39 +217,45 @@ class WallpaperCard(QFrame):
 
     def _update_fav_style(self) -> None:
         if self._is_favorited:
-            self.fav_btn.setText("★")
+            self.fav_btn.setIcon(create_icon("star_filled", "#F59E0B", 16))
+            self.fav_btn.setText("")
+            self.fav_btn.setToolTip("取消收藏")
             self.fav_btn.setStyleSheet("""
                 QPushButton {
+                    background-color: #FFFBEB;
+                    border: 1px solid #FCD34D;
+                    border-radius: 14px;
+                    padding: 0px;
+                }
+                QPushButton:hover {
                     background-color: #FEF3C7;
-                    color: #D97706;
-                    border: none;
-                    border-radius: 13px;
-                    font-size: 14px;
+                    border-color: #F59E0B;
                 }
             """)
         else:
-            self.fav_btn.setText("☆")
+            self.fav_btn.setIcon(create_icon("star_outline", "#475569", 16))
+            self.fav_btn.setText("")
+            self.fav_btn.setToolTip("添加收藏")
             self.fav_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: rgba(0, 0, 0, 0.45);
-                    color: #FFFFFF;
-                    border: none;
-                    border-radius: 13px;
-                    font-size: 14px;
+                    background-color: rgba(255, 255, 255, 0.94);
+                    border: 1px solid rgba(226, 232, 240, 0.9);
+                    border-radius: 14px;
+                    padding: 0px;
                 }
                 QPushButton:hover {
-                    background-color: rgba(0, 0, 0, 0.75);
+                    background-color: #FFFFFF;
+                    border-color: #0078D4;
                 }
             """)
 
-
     def _toggle_favorite(self) -> None:
+        wid, url = extract_item_ids(self.item_data)
         self._is_favorited = not self._is_favorited
-        wid = str(self.item_data.get("id") or self.item_data.get("wallpaper_id") or self.item_data.get("url") or "")
         if self._is_favorited:
             db.add_favorite(self.item_data)
         else:
-            db.remove_favorite(wid)
+            db.remove_favorite(wid, url)
         self._update_fav_style()
         self.favorite_toggled.emit(self.item_data, self._is_favorited)
 
@@ -244,9 +271,9 @@ class WallpaperCard(QFrame):
 
         ok = api_client.download_image(url, target)
         if ok:
-            QMessageBox.information(self, "保存成功", f"壁纸已成功保存至:\n{target}")
+            show_success(self, "保存成功", f"壁纸已成功保存至:\n{target}")
         else:
-            QMessageBox.warning(self, "保存失败", "下载壁纸失败，请检查网络连接")
+            show_warning(self, "保存失败", "下载壁纸失败，请检查网络连接")
 
     def _load_thumbnail(self) -> None:
         url = (

@@ -24,9 +24,11 @@ from PySide6.QtWidgets import (
 
 from ...constants import CATEGORIES, CATEGORY_MAP
 from ...core.api_client import api_client
-from ..components.category_tab_bar import CATEGORY_EMOJIS, CategoryTabBar
+from ...core.database import db
+from ..components.category_tab_bar import CategoryTabBar
 from ..components.preview_dialog import PreviewDialog
-from ..components.wallpaper_card import WallpaperCard
+from ..components.wallpaper_card import WallpaperCard, extract_item_ids
+from ..icons import create_icon
 
 
 class FetchPageWorker(QThread):
@@ -53,8 +55,10 @@ class FetchPageWorker(QThread):
         try:
             if self.keyword:
                 result = api_client.search_wallpapers(self.keyword, self.start_idx, self.count)
+            elif self.category_id == "latest":
+                result = api_client.get_latest_wallpapers(self.start_idx, self.count)
             else:
-                result = api_client.get_category_wallpapers(self.category_id or "36", self.start_idx, self.count)
+                result = api_client.get_category_wallpapers(self.category_id or "latest", self.start_idx, self.count)
             self.data_loaded.emit(result, self.req_id)
         except Exception as e:
             self.error.emit(str(e), self.req_id)
@@ -67,7 +71,7 @@ class GalleryPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None, auto_load: bool = True) -> None:
         super().__init__(parent)
-        self._current_cat_id = "36"  # default 4K专区
+        self._current_cat_id = "latest"  # default 最新壁纸
         self._current_keyword = ""
         self._page_size = 24
         self._current_page = 1
@@ -108,9 +112,8 @@ class GalleryPage(QWidget):
         info_layout.setSpacing(10)
 
         initial_cat = next((c for c in CATEGORIES if c["id"] == self._current_cat_id), CATEGORIES[0])
-        initial_emoji = CATEGORY_EMOJIS.get(self._current_cat_id, "✨")
 
-        self.header_title_lbl = QLabel(f"{initial_emoji} {initial_cat['name']}", self.header_info_widget)
+        self.header_title_lbl = QLabel(initial_cat["name"], self.header_info_widget)
         font = self.header_title_lbl.font()
         font.setPointSize(14)
         font.setBold(True)
@@ -152,7 +155,8 @@ class GalleryPage(QWidget):
         """)
         search_tag_layout.addWidget(self.search_tag_lbl)
 
-        self.back_to_cat_btn = QPushButton("✕ 返回分类", self.search_tag_widget)
+        self.back_to_cat_btn = QPushButton("返回分类", self.search_tag_widget)
+        self.back_to_cat_btn.setIcon(create_icon("arrow_left", color="#475569", size=14))
         self.back_to_cat_btn.setFixedHeight(28)
         self.back_to_cat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_to_cat_btn.setStyleSheet("""
@@ -181,17 +185,19 @@ class GalleryPage(QWidget):
         self.search_input = QLineEdit(self)
         self.search_input.setFixedWidth(280)
         self.search_input.setFixedHeight(34)
-        self.search_input.setPlaceholderText("🔍 搜索壁纸（星空/动漫/赛博朋克）...")
+        self.search_input.setPlaceholderText("搜索壁纸（星空/动漫/赛博朋克）...")
         self.search_input.returnPressed.connect(self._on_search)
         control_bar.addWidget(self.search_input)
 
         self.search_btn = QPushButton("搜索", self)
+        self.search_btn.setIcon(create_icon("search", color="#FFFFFF", size=16))
         self.search_btn.setProperty("class", "PrimaryButton")
         self.search_btn.setFixedHeight(34)
         self.search_btn.clicked.connect(self._on_search)
         control_bar.addWidget(self.search_btn)
 
-        self.refresh_btn = QPushButton("🔄 刷新", self)
+        self.refresh_btn = QPushButton("刷新", self)
+        self.refresh_btn.setIcon(create_icon("refresh", color="#475569", size=16))
         self.refresh_btn.setFixedHeight(34)
         self.refresh_btn.clicked.connect(lambda: self.load_page(self._current_page))
         control_bar.addWidget(self.refresh_btn)
@@ -226,7 +232,8 @@ class GalleryPage(QWidget):
         page_bar.setSpacing(10)
         page_bar.addStretch()
 
-        self.prev_btn = QPushButton("⬅ 上一页", self)
+        self.prev_btn = QPushButton("上一页", self)
+        self.prev_btn.setIcon(create_icon("chevron_left", color="#475569", size=16))
         self.prev_btn.clicked.connect(self._prev_page)
         page_bar.addWidget(self.prev_btn)
 
@@ -234,7 +241,8 @@ class GalleryPage(QWidget):
         self.page_info_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
         page_bar.addWidget(self.page_info_label)
 
-        self.next_btn = QPushButton("下一页 ➡", self)
+        self.next_btn = QPushButton("下一页", self)
+        self.next_btn.setIcon(create_icon("chevron_right", color="#475569", size=16))
         self.next_btn.clicked.connect(self._next_page)
         page_bar.addWidget(self.next_btn)
 
@@ -253,6 +261,7 @@ class GalleryPage(QWidget):
         page_bar.addWidget(self.jump_spinbox)
 
         self.jump_btn = QPushButton("跳转", self)
+        self.jump_btn.setIcon(create_icon("arrow_jump", color="#475569", size=14))
         self.jump_btn.setFixedHeight(34)
         self.jump_btn.clicked.connect(self._jump_page)
         page_bar.addWidget(self.jump_btn)
@@ -294,9 +303,8 @@ class GalleryPage(QWidget):
         self.search_input.clear()
 
         # Update header info
-        emoji = CATEGORY_EMOJIS.get(cat_id, "🖼️")
         name = cat_name or CATEGORY_MAP.get(cat_id, "壁纸")
-        self.header_title_lbl.setText(f"{emoji} {name}")
+        self.header_title_lbl.setText(name)
         self.header_desc_lbl.setText(cat_desc)
 
         self.search_tag_widget.hide()
@@ -313,7 +321,7 @@ class GalleryPage(QWidget):
         # Update UI to search mode
         self.cat_tab_bar.clear_selection()
         self.header_info_widget.hide()
-        self.search_tag_lbl.setText(f"🔍 搜索关键词:  \"{kw}\"")
+        self.search_tag_lbl.setText(f"搜索关键词:  \"{kw}\"")
         self.search_tag_widget.show()
 
         self.load_page(1)
@@ -426,6 +434,13 @@ class GalleryPage(QWidget):
         dialog = PreviewDialog(item_data, self)
         dialog.apply_requested.connect(self.apply_wallpaper_requested.emit)
         dialog.exec()
+        # Update cards favorite status if changed inside preview dialog
+        for card in self._cards:
+            wid, url = extract_item_ids(card.item_data)
+            fav = db.is_favorite(wid, url)
+            if card._is_favorited != fav:
+                card._is_favorited = fav
+                card._update_fav_style()
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)

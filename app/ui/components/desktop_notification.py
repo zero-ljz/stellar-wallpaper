@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 from ...config import config
 from ...constants import APP_NAME
 from ...core.scheduler import scheduler
+from ..icons import create_fluent_pixmap, create_icon
 
 
 class DesktopNotification(QWidget):
@@ -74,10 +75,8 @@ class DesktopNotification(QWidget):
         header = QHBoxLayout()
         header.setSpacing(8)
 
-        self.icon_label = QLabel("⚡", self.card)
-        font = self.icon_label.font()
-        font.setPointSize(13)
-        self.icon_label.setFont(font)
+        self.icon_label = QLabel(self.card)
+        self.icon_label.setPixmap(create_fluent_pixmap("sparkle_filled", color="#0078D4", size=18))
         header.addWidget(self.icon_label)
 
         self.title_label = QLabel(APP_NAME, self.card)
@@ -88,20 +87,17 @@ class DesktopNotification(QWidget):
         self.title_label.setStyleSheet("color: #0F172A;")
         header.addWidget(self.title_label, 1)
 
-        self.close_btn = QPushButton("✕", self.card)
+        self.close_btn = QPushButton(self.card)
+        self.close_btn.setIcon(create_icon("close", color="#94A3B8", size=12))
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.setStyleSheet("""
             QPushButton {
                 border: none;
                 background: transparent;
-                color: #94A3B8;
-                font-size: 11px;
-                font-weight: bold;
                 border-radius: 4px;
             }
             QPushButton:hover {
-                color: #0F172A;
                 background: #F1F5F9;
             }
         """)
@@ -173,7 +169,7 @@ class DesktopNotification(QWidget):
         self._auto_hide_timer.stop()
         self._reposition()
 
-        self.icon_label.setText("⏳")
+        self.icon_label.setPixmap(create_fluent_pixmap("sparkle_filled", color="#0078D4", size=18))
         self.title_label.setText("正在更换壁纸")
         self.message_label.setText(stage_text)
         self.progress_bar.setVisible(True)
@@ -194,6 +190,7 @@ class DesktopNotification(QWidget):
         """)
 
         self._is_fading_out = False
+        self.icon_label.setPixmap(create_fluent_pixmap("sparkle_filled", color="#0078D4", size=18))
         if not self.isVisible() or self.windowOpacity() < 0.9:
             self.setWindowOpacity(0.0)
             self.show()
@@ -207,7 +204,7 @@ class DesktopNotification(QWidget):
             return
         self._reposition()
 
-        self.icon_label.setText("🎉")
+        self.icon_label.setPixmap(create_fluent_pixmap("check_circle_filled", color="#10B981", size=18))
         self.title_label.setText("壁纸已更新")
         self.message_label.setText(title)
         self.progress_bar.setVisible(False)
@@ -242,7 +239,7 @@ class DesktopNotification(QWidget):
             return
         self._reposition()
 
-        self.icon_label.setText("⚠️")
+        self.icon_label.setPixmap(create_fluent_pixmap("warning_filled", color="#EF4444", size=18))
         self.title_label.setText("壁纸设置失败")
         self.message_label.setText(err_msg)
         self.progress_bar.setVisible(False)

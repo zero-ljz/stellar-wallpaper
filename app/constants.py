@@ -17,8 +17,9 @@ DB_PATH = DEFAULT_APP_DATA_DIR / "wallpaper.db"
 # Default save folder for user downloads
 DEFAULT_DOWNLOAD_DIR = Path.home() / "Pictures" / "Wallpapers"
 
-# 15 Curated Wallpaper Categories
+# 16 Curated Wallpaper Categories (including Latest)
 CATEGORIES = [
+    {"id": "latest", "name": "最新壁纸", "desc": "全网最新上传精选壁纸"},
     {"id": "36", "name": "4K专区", "desc": "3840×2160 超高清壁纸"},
     {"id": "9", "name": "风景大片", "desc": "壮美自然、山川湖海"},
     {"id": "26", "name": "动漫卡通", "desc": "二次元、精选动漫CG"},

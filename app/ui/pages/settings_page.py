@@ -26,7 +26,9 @@ from ...config import config
 from ...constants import APP_NAME, APP_VERSION, WALLPAPER_STYLES
 from ...core.cache_manager import cache_mgr
 from ...core.wallpaper_setter import wallpaper_setter
+from ..components.message_box import show_info, show_question, show_success
 from ..components.switch_toggle import SwitchToggle
+from ..icons import create_fluent_pixmap, create_icon
 
 
 class StyleOptionCard(QPushButton):
@@ -78,11 +80,11 @@ class StyleOptionCard(QPushButton):
 
 
 class SettingRowCard(QFrame):
-    """Windows 11 Settings item row with title, description, and switch/action widget."""
+    """Windows 11 Settings item row with Fluent vector icon, title, description, and action widget."""
 
     def __init__(
         self,
-        icon: str,
+        icon_name: str,
         title: str,
         desc: str,
         action_widget: QWidget,
@@ -101,10 +103,8 @@ class SettingRowCard(QFrame):
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setSpacing(14)
 
-        icon_lbl = QLabel(icon, self)
-        font = icon_lbl.font()
-        font.setPointSize(14)
-        icon_lbl.setFont(font)
+        icon_lbl = QLabel(self)
+        icon_lbl.setPixmap(create_fluent_pixmap(icon_name, color="#0078D4", size=22))
         icon_lbl.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(icon_lbl)
 
@@ -148,7 +148,7 @@ class SettingsPage(QWidget):
         # Header Title
         title_box = QVBoxLayout()
         title_box.setSpacing(3)
-        title_lbl = QLabel("⚙️ 设置中心", container)
+        title_lbl = QLabel("设置中心", container)
         font = title_lbl.font()
         font.setPointSize(16)
         font.setBold(True)
@@ -169,7 +169,7 @@ class SettingsPage(QWidget):
         sc_layout.setContentsMargins(20, 16, 20, 16)
         sc_layout.setSpacing(12)
 
-        sc_title = QLabel("🖥️ Windows 桌面壁纸呈现样式", style_card)
+        sc_title = QLabel("Windows 桌面壁纸呈现样式", style_card)
         font = sc_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -205,7 +205,7 @@ class SettingsPage(QWidget):
         dl_layout.setContentsMargins(20, 16, 20, 16)
         dl_layout.setSpacing(10)
 
-        dl_title = QLabel("📂 壁纸下载与保存目录", dl_card)
+        dl_title = QLabel("壁纸下载与保存目录", dl_card)
         font = dl_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -220,11 +220,13 @@ class SettingsPage(QWidget):
         dl_row.addWidget(self.path_input, 1)
 
         self.browse_btn = QPushButton("更改目录...", dl_card)
+        self.browse_btn.setIcon(create_icon("folder_open", color="#475569", size=14))
         self.browse_btn.setFixedHeight(36)
         self.browse_btn.clicked.connect(self._on_browse_dir)
         dl_row.addWidget(self.browse_btn)
 
         self.open_dir_btn = QPushButton("打开文件夹", dl_card)
+        self.open_dir_btn.setIcon(create_icon("folder", color="#475569", size=14))
         self.open_dir_btn.setFixedHeight(36)
         self.open_dir_btn.clicked.connect(self._on_open_dir)
         dl_row.addWidget(self.open_dir_btn)
@@ -240,7 +242,7 @@ class SettingsPage(QWidget):
         cc_layout.setContentsMargins(20, 16, 20, 16)
         cc_layout.setSpacing(10)
 
-        cc_title = QLabel("🧹 本地图片缓存管理", cache_card)
+        cc_title = QLabel("本地图片缓存管理", cache_card)
         font = cc_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -255,7 +257,8 @@ class SettingsPage(QWidget):
 
         cc_row.addStretch()
 
-        self.clear_cache_btn = QPushButton("🗑️ 清理全部缓存", cache_card)
+        self.clear_cache_btn = QPushButton("清理全部缓存", cache_card)
+        self.clear_cache_btn.setIcon(create_icon("trash", color="#475569", size=14))
         self.clear_cache_btn.setFixedHeight(36)
         self.clear_cache_btn.clicked.connect(self._on_clear_cache)
         cc_row.addWidget(self.clear_cache_btn)
@@ -267,7 +270,7 @@ class SettingsPage(QWidget):
         sys_vbox = QVBoxLayout()
         sys_vbox.setSpacing(8)
 
-        sys_hdr = QLabel("⚙️ Windows 系统集成与选项", container)
+        sys_hdr = QLabel("Windows 系统集成与选项", container)
         font = sys_hdr.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -279,21 +282,21 @@ class SettingsPage(QWidget):
         self.startup_switch = SwitchToggle(container)
         self.startup_switch.setChecked(wallpaper_setter.is_startup_enabled() or config.start_with_windows)
         self.startup_switch.toggled.connect(self._on_startup_toggled)
-        row1 = SettingRowCard("🚀", "开机自动启动", "随 Windows 系统开机在后台静默启动运行", self.startup_switch, container)
+        row1 = SettingRowCard("power", "开机自动启动", "随 Windows 系统开机在后台静默启动运行", self.startup_switch, container)
         sys_vbox.addWidget(row1)
 
         # Switch 2: Close to Tray
         self.close_switch = SwitchToggle(container)
         self.close_switch.setChecked(config.close_to_tray)
         self.close_switch.toggled.connect(lambda chk: config.set("close_to_tray", chk))
-        row2 = SettingRowCard("🪟", "关闭时最小化到托盘", "点击窗口右上角关闭按钮时，保持后台运行而不退出软件", self.close_switch, container)
+        row2 = SettingRowCard("desktop", "关闭时最小化到托盘", "点击窗口右上角关闭按钮时，保持后台运行而不退出软件", self.close_switch, container)
         sys_vbox.addWidget(row2)
 
         # Switch 3: Tray Notification
         self.notify_switch = SwitchToggle(container)
         self.notify_switch.setChecked(config.tray_notifications)
         self.notify_switch.toggled.connect(lambda chk: config.set("tray_notifications", chk))
-        row3 = SettingRowCard("🔔", "桌面悬浮通知消息", "更换壁纸时在屏幕右下角弹出精美的实时进度与完成气泡", self.notify_switch, container)
+        row3 = SettingRowCard("bell", "桌面悬浮通知消息", "更换壁纸时在屏幕右下角弹出精美的实时进度与完成气泡", self.notify_switch, container)
         sys_vbox.addWidget(row3)
 
         layout.addLayout(sys_vbox)
@@ -306,7 +309,7 @@ class SettingsPage(QWidget):
         ab_layout.setContentsMargins(20, 16, 20, 16)
         ab_layout.setSpacing(8)
 
-        ab_title = QLabel(f"ℹ️ 关于 {APP_NAME} v{APP_VERSION}", about_card)
+        ab_title = QLabel(f"关于 {APP_NAME} v{APP_VERSION}", about_card)
         font = ab_title.font()
         font.setBold(True)
         font.setPointSize(13)
@@ -355,17 +358,15 @@ class SettingsPage(QWidget):
             os.startfile(str(path))
 
     def _on_clear_cache(self) -> None:
-        res = QMessageBox.question(
+        if show_question(
             self,
             "确认清理",
             "确定要清理所有本地缓存图片吗？已保存到下载目录的壁纸不受影响。",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if res == QMessageBox.StandardButton.Yes:
+        ):
             count, freed = cache_mgr.clear_cache()
             mb = freed / (1024 * 1024)
             self.cache_size_lbl.setText(f"已占用缓存: {cache_mgr.get_cache_size_mb_str()}")
-            QMessageBox.information(self, "清理完成", f"已成功清理 {count} 个缓存文件，释放 {mb:.2f} MB 空间。")
+            show_success(self, "清理完成", f"已成功清理 {count} 个缓存文件，释放 {mb:.2f} MB 空间。")
 
     def _on_startup_toggled(self, enabled: bool) -> None:
         config.start_with_windows = enabled
