@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...config import config
-from ...core.api_client import api_client
+from ...core.api_client import api_client, get_full_image_url
 from ...core.cache_manager import cache_mgr
 from ...core.database import db
 from ...core.image_loader import image_loader
@@ -182,7 +182,7 @@ class PreviewDialog(QDialog):
         return w
 
     def _load_image(self) -> None:
-        url = self.item_data.get("url") or self.item_data.get("url_mid") or self.item_data.get("thumb_url") or ""
+        url = get_full_image_url(self.item_data) or self.item_data.get("thumb_url") or ""
         local_path = self.item_data.get("local_path", "")
         image_loader.load_full_image(url, local_path, self._on_image_loaded)
 
@@ -212,7 +212,7 @@ class PreviewDialog(QDialog):
         self.close()
 
     def _on_save(self) -> None:
-        url = self.item_data.get("url") or self.item_data.get("url_mid") or ""
+        url = get_full_image_url(self.item_data)
         save_dir = Path(config.download_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         filename = f"Wallpaper_{self.item_data.get('id', 'pic')}.jpg"

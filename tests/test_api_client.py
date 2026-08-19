@@ -1,8 +1,81 @@
 """Unit tests for API client and caching."""
 
-from app.core.api_client import WallpaperApiClient
+from app.core.api_client import (
+    WallpaperApiClient,
+    format_360_item,
+    format_bing_archive_item,
+    format_bing_item,
+    format_picsum_item,
+    get_full_image_url,
+)
 from app.core.cache_manager import CacheManager
-from app.constants import CATEGORIES
+
+
+def test_format_picsum_item_download_matches_displayed_resolution():
+    item = format_picsum_item(
+        {
+            "id": "42",
+            "author": "Test Photographer",
+            "width": 5000,
+            "height": 3333,
+            "download_url": "https://picsum.photos/id/42/5000/3333",
+        }
+    )
+
+    assert item["resolution"] == "5000×3333"
+    assert item["url"] == "https://picsum.photos/id/42/5000/3333"
+    assert item["download_url"] == item["url"]
+    assert item["url_thumb"] == "https://picsum.photos/id/42/500/280"
+
+
+def test_format_picsum_item_builds_full_resolution_url_when_missing():
+    item = format_picsum_item({"id": "7", "width": 4312, "height": 2875})
+
+    assert item["resolution"] == "4312×2875"
+    assert item["url"] == "https://picsum.photos/id/7/4312/2875"
+
+
+def test_all_sources_expose_their_original_download_url():
+    item_360 = format_360_item(
+        {
+            "id": "1",
+            "url": "https://example.com/360-original.jpg",
+            "url_mid": "https://example.com/360-medium.jpg",
+        }
+    )
+    bing = format_bing_item({"urlbase": "/th?id=OHR.Test_ZH-CN123"})
+    bing_archive = format_bing_archive_item(
+        {
+            "date": "2026-08-19",
+            "bing_url": "https://bing.com/th?id=OHR.Test_ZH-CN123_UHD.jpg",
+            "url": "https://example.com/bing-thumbnail.jpg",
+        }
+    )
+
+    assert get_full_image_url(item_360) == "https://example.com/360-original.jpg"
+    assert get_full_image_url(bing).endswith("_UHD.jpg")
+    assert get_full_image_url(bing_archive).endswith("_UHD.jpg")
+
+
+def test_full_image_url_prefers_download_url_over_preview_variants():
+    item = {
+        "download_url": "https://example.com/original.jpg",
+        "url": "https://example.com/default.jpg",
+        "url_mid": "https://example.com/medium.jpg",
+    }
+
+    assert get_full_image_url(item) == "https://example.com/original.jpg"
+
+
+def test_full_image_url_upgrades_legacy_picsum_record():
+    legacy_item = {
+        "wallpaper_id": "picsum_42",
+        "category_id": "picsum",
+        "resolution": "5000×3333",
+        "url": "https://picsum.photos/id/42/2560/1440",
+    }
+
+    assert get_full_image_url(legacy_item) == "https://picsum.photos/id/42/5000/3333"
 
 
 def test_api_client_category():
@@ -139,4 +212,3 @@ def test_cache_manager_hash():
     h2 = mgr.get_url_hash("http://example.com/test.jpg")
     assert h1 == h2
     assert len(h1) == 32
-

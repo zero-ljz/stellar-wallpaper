@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...config import config
-from ...core.api_client import api_client
+from ...core.api_client import api_client, get_full_image_url
 from ...core.database import db
 from ...core.image_loader import image_loader
 from ..icons import create_icon
@@ -260,7 +260,7 @@ class WallpaperCard(QFrame):
         self.favorite_toggled.emit(self.item_data, self._is_favorited)
 
     def _on_download_clicked(self) -> None:
-        url = self.item_data.get("url") or self.item_data.get("url_mid") or ""
+        url = get_full_image_url(self.item_data)
         if not url:
             return
 

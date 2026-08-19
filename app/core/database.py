@@ -88,7 +88,7 @@ class DatabaseManager:
                     (
                         str(item.get("id") or item.get("wallpaper_id") or ""),
                         item.get("title") or item.get("tag") or "壁纸",
-                        item.get("url") or "",
+                        item.get("download_url") or item.get("url") or "",
                         item.get("thumb_url") or item.get("url_thumb") or item.get("url") or "",
                         item.get("local_path") or "",
                         str(item.get("category_id") or item.get("class_id") or ""),
@@ -141,7 +141,7 @@ class DatabaseManager:
                         (
                             wid,
                             item.get("title") or item.get("tag") or "壁纸",
-                            item.get("url") or "",
+                            item.get("download_url") or item.get("url") or "",
                             item.get("thumb_url") or item.get("url_thumb") or item.get("url") or "",
                             item.get("local_path") or "",
                             str(item.get("category_id") or item.get("class_id") or ""),

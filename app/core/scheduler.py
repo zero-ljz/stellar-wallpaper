@@ -10,7 +10,7 @@ from typing import Any
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
 
 from ..config import config
-from .api_client import api_client
+from .api_client import api_client, get_full_image_url
 from .database import db
 from .wallpaper_setter import wallpaper_setter
 
@@ -44,7 +44,7 @@ class WallpaperSwitchWorker(QThread):
             # 1. Determine which wallpaper to apply
             if self.specific_item:
                 item = dict(self.specific_item)
-                img_url = item.get("url") or item.get("url_mid") or item.get("thumb_url") or ""
+                img_url = get_full_image_url(item) or item.get("thumb_url") or ""
                 local_path = item.get("local_path")
                 
                 # Check if already on disk
@@ -70,7 +70,7 @@ class WallpaperSwitchWorker(QThread):
                     return
                 item = fav
                 local_path = item.get("local_path")
-                img_url = item.get("url")
+                img_url = get_full_image_url(item)
                 if not local_path or not Path(local_path).exists():
                     self.stage_changed.emit("正在下载收藏壁纸...")
                     from .cache_manager import cache_mgr

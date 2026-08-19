@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+
 from app.core.database import DatabaseManager
 
 
@@ -16,7 +17,8 @@ def test_database_history_crud():
         item = {
             "id": "1001",
             "title": "测试4K风景",
-            "url": "http://example.com/pic1.jpg",
+            "url": "http://example.com/pic1-preview.jpg",
+            "download_url": "http://example.com/pic1-original.jpg",
             "category_id": "36",
             "category_name": "4K专区",
             "resolution": "3840x2160",
@@ -31,6 +33,7 @@ def test_database_history_crud():
         assert len(history) == 1
         assert history[0]["title"] == "测试4K风景"
         assert history[0]["category_name"] == "4K专区"
+        assert history[0]["url"] == "http://example.com/pic1-original.jpg"
 
         # Clear history
         db.clear_history()
@@ -48,7 +51,8 @@ def test_database_favorites_crud():
         item = {
             "id": "2001",
             "title": "二次元动漫美图",
-            "url": "http://example.com/anime.jpg",
+            "url": "http://example.com/anime-preview.jpg",
+            "download_url": "http://example.com/anime-original.jpg",
             "category_id": "26",
             "category_name": "动漫卡通",
             "resolution": "1920x1080",
@@ -63,6 +67,7 @@ def test_database_favorites_crud():
         favs = db.get_favorites()
         assert len(favs) == 1
         assert favs[0]["title"] == "二次元动漫美图"
+        assert favs[0]["url"] == "http://example.com/anime-original.jpg"
 
         # Random favorite
         rand_fav = db.get_random_favorite()
@@ -75,4 +80,3 @@ def test_database_favorites_crud():
         assert db.count_favorites() == 0
         assert db.is_favorite("2001") is False
         db.close()
-

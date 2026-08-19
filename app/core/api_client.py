@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,6 +32,7 @@ def format_360_item(item: dict[str, Any], default_cat_name: str = "壁纸") -> d
     cat_name = CATEGORY_MAP.get(cat_id, default_cat_name)
     item["category_id"] = cat_id
     item["category_name"] = cat_name
+    item["download_url"] = item.get("download_url") or item.get("url") or ""
 
     raw_tag = item.get("tag", "") or ""
     if not item.get("title") or "_category_" in item.get("title", "") or "_360Wallpaper_" in item.get("title", ""):
@@ -78,6 +80,7 @@ def format_bing_item(img: dict[str, Any]) -> dict[str, Any]:
         "category_name": "必应壁纸",
         "resolution": "3840×2160 4K",
         "url": full_url,
+        "download_url": full_url,
         "url_thumb": thumb_url,
         "url_mid": thumb_url,
         "thumb_url": thumb_url,
@@ -109,6 +112,7 @@ def format_bing_archive_item(item: dict[str, Any]) -> dict[str, Any]:
         "category_name": "必应壁纸",
         "resolution": "3840×2160 4K",
         "url": bing_url or thumb_url,
+        "download_url": bing_url or thumb_url,
         "url_thumb": thumb_url,
         "url_mid": thumb_url,
         "thumb_url": thumb_url,
@@ -121,9 +125,12 @@ def format_picsum_item(photo: dict[str, Any]) -> dict[str, Any]:
     """Format and enrich Lorem Picsum photos item."""
     photo_id = str(photo.get("id", ""))
     author = photo.get("author", "Lorem Picsum")
-    width = photo.get("width", 2560)
-    height = photo.get("height", 1440)
-    high_res_url = f"https://picsum.photos/id/{photo_id}/2560/1440"
+    width = int(photo.get("width") or 2560)
+    height = int(photo.get("height") or 1440)
+    # Picsum's list API reports the source image dimensions. Keep the download
+    # URL at those dimensions too, otherwise the displayed resolution describes
+    # the source while users receive a cropped 2560x1440 image.
+    high_res_url = photo.get("download_url") or f"https://picsum.photos/id/{photo_id}/{width}/{height}"
     thumb_url = f"https://picsum.photos/id/{photo_id}/500/280"
     wid = f"picsum_{photo_id}"
 
@@ -136,12 +143,35 @@ def format_picsum_item(photo: dict[str, Any]) -> dict[str, Any]:
         "category_name": "Picsum 图库",
         "resolution": f"{width}×{height}",
         "url": high_res_url,
+        "download_url": high_res_url,
         "url_thumb": thumb_url,
         "url_mid": thumb_url,
         "thumb_url": thumb_url,
         "author": author,
         "original_url": photo.get("url", ""),
     }
+
+
+def get_full_image_url(item: dict[str, Any]) -> str:
+    """Return the best available full-resolution image URL for any source."""
+    download_url = item.get("download_url")
+    if download_url:
+        return str(download_url)
+
+    # Favorites/history created before native Picsum downloads were introduced
+    # only contain the old fixed 2560x1440 URL. Rebuild the native-size URL from
+    # the metadata so those saved records also benefit from the fix.
+    category_id = str(item.get("category_id") or item.get("class_id") or "")
+    wallpaper_id = str(item.get("wallpaper_id") or item.get("id") or "")
+    resolution = str(item.get("resolution") or "")
+    if category_id == "picsum" or wallpaper_id.startswith("picsum_"):
+        match = re.search(r"(\d+)\s*[x×]\s*(\d+)", resolution, re.IGNORECASE)
+        photo_id = wallpaper_id.removeprefix("picsum_")
+        if match and photo_id:
+            width, height = match.groups()
+            return f"https://picsum.photos/id/{photo_id}/{width}/{height}"
+
+    return str(item.get("url") or item.get("url_mid") or "")
 
 
 class WallpaperApiClient:
@@ -166,7 +196,7 @@ class WallpaperApiClient:
     def _is_recently_used(self, item: dict[str, Any]) -> bool:
         """Check if an item was recently randomized or set in history database."""
         wid = str(item.get("id") or item.get("wallpaper_id") or "")
-        url = str(item.get("url") or item.get("url_mid") or "")
+        url = get_full_image_url(item)
         if wid and wid in self._recent_random_ids:
             return True
         try:
@@ -496,7 +526,7 @@ class WallpaperApiClient:
         shuffled = list(candidates)
         random.shuffle(shuffled)
         for item in shuffled[:5]:
-            img_url = item.get("url") or item.get("url_mid")
+            img_url = get_full_image_url(item)
             if not img_url:
                 continue
 
@@ -537,7 +567,7 @@ class WallpaperApiClient:
         shuffled = list(candidates)
         random.shuffle(shuffled)
         for item in shuffled[:4]:
-            img_url = item.get("url")
+            img_url = get_full_image_url(item)
             if not img_url:
                 continue
 
@@ -592,7 +622,7 @@ class WallpaperApiClient:
             shuffled = list(candidates)
             random.shuffle(shuffled)
             for item in shuffled[:3]:
-                img_url = item.get("url") or item.get("url_mid") or item.get("url_thumb")
+                img_url = get_full_image_url(item) or item.get("url_thumb")
                 if not img_url:
                     continue
 
