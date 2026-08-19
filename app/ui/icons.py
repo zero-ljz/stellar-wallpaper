@@ -77,8 +77,10 @@ ICON_NAME_MAP: Final[dict[str, str]] = {
     "chevron_down": "chevron_down_24_regular",
     "arrow_left": "arrow_left_24_regular",
     "arrow_jump": "arrow_enter_left_24_regular",
-    # Categories (360 Wallpaper Categories)
+    # Categories & Sources (360 Wallpaper, Bing, Lorem Picsum)
     "cat_latest": "flash_24_filled",
+    "cat_bing": "weather_sunny_24_regular",
+    "cat_picsum": "camera_24_regular",
     "cat_4k": "sparkle_24_filled",
     "cat_landscape": "weather_sunny_24_regular",
     "cat_anime": "paint_brush_24_regular",

@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFileDialog,
@@ -318,15 +318,42 @@ class SettingsPage(QWidget):
         ab_layout.addWidget(ab_title)
 
         info_text = (
-            "• 软件名称: 星澜壁纸 (Stellar Wallpaper) v1.0.0\n"
-            "• 操作系统: 兼容 Windows 10 & 11 (64-bit)\n"
-            "• 渲染引擎: 现代轻量化 Fluent 2 Light Engine\n"
-            "• 专属字体: MiSans (小米高品质清晰字库)\n"
-            "• 壁纸画廊: 15 大精选主题超高清云端图库 (含 4K 专区)"
+            f"• 软件名称: 星澜壁纸 (Stellar Wallpaper) v{APP_VERSION}<br>"
+            "• 开源主页: <a href=\"https://github.com/zero-ljz/stellar-wallpaper\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">https://github.com/zero-ljz/stellar-wallpaper</a><br>"
+            "• 操作系统: 兼容 Windows 10 & 11 (64-bit)<br>"
+            "• 渲染引擎: 现代轻量化 Fluent 2 Light Engine<br>"
+            "• 专属字体: MiSans (小米高品质清晰字库)<br>"
+            "• 壁纸画廊: 18 大精选主题与图源 (含 4K 专区、必应历史大图库、Picsum 摄影图库)"
         )
         ab_desc = QLabel(info_text, about_card)
-        ab_desc.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px; line-height: 1.8; border: none; background: transparent;")
+        ab_desc.setTextFormat(Qt.TextFormat.RichText)
+        ab_desc.setOpenExternalLinks(True)
+        ab_desc.setStyleSheet("color: #475569; font-weight: 500; font-size: 12px; line-height: 1.8; border: none; background: transparent;")
         ab_layout.addWidget(ab_desc)
+
+        github_btn = QPushButton("访问 GitHub 开源仓库", about_card)
+        github_btn.setIcon(create_icon("link", color="#0078D4", size=14))
+        github_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        github_btn.setFixedHeight(30)
+        github_btn.setFixedWidth(160)
+        github_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #EFF6FF;
+                color: #0078D4;
+                border: 1px solid #BFDBFE;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 12px;
+                padding: 0 10px;
+            }
+            QPushButton:hover {
+                background-color: #DBEAFE;
+                border-color: #93C5FD;
+                color: #005A9E;
+            }
+        """)
+        github_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/zero-ljz/stellar-wallpaper")))
+        ab_layout.addWidget(github_btn)
 
         layout.addWidget(about_card)
         layout.addStretch()

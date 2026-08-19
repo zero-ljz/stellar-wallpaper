@@ -8,6 +8,7 @@ from typing import Any
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -42,6 +43,7 @@ class FetchPageWorker(QThread):
         keyword: str = "",
         start: int = 0,
         count: int = 24,
+        sort_order: str = "asc",
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -50,6 +52,7 @@ class FetchPageWorker(QThread):
         self.keyword = keyword
         self.start_idx = start
         self.count = count
+        self.sort_order = sort_order
 
     def run(self) -> None:
         try:
@@ -57,8 +60,17 @@ class FetchPageWorker(QThread):
                 result = api_client.search_wallpapers(self.keyword, self.start_idx, self.count)
             elif self.category_id == "latest":
                 result = api_client.get_latest_wallpapers(self.start_idx, self.count)
+            elif self.category_id == "bing":
+                result = api_client.get_bing_wallpapers(self.start_idx, self.count)
+            elif self.category_id == "picsum":
+                result = api_client.get_picsum_wallpapers(self.start_idx, self.count, sort_order=self.sort_order)
             else:
-                result = api_client.get_category_wallpapers(self.category_id or "latest", self.start_idx, self.count)
+                result = api_client.get_category_wallpapers(
+                    self.category_id or "latest",
+                    self.start_idx,
+                    self.count,
+                    sort_order=self.sort_order,
+                )
             self.data_loaded.emit(result, self.req_id)
         except Exception as e:
             self.error.emit(str(e), self.req_id)
@@ -73,6 +85,7 @@ class GalleryPage(QWidget):
         super().__init__(parent)
         self._current_cat_id = "latest"  # default 最新壁纸
         self._current_keyword = ""
+        self._picsum_sort_order = "asc"  # default 正序 (asc / desc / random)
         self._page_size = 24
         self._current_page = 1
         self._total_count = 0
@@ -179,13 +192,78 @@ class GalleryPage(QWidget):
         control_bar.addWidget(self.search_tag_widget)
         self.search_tag_widget.hide()
 
+        # Sort Selector Widget for Picsum category (正序 / 倒序 / 随机)
+        self.sort_container = QWidget(self)
+        sort_layout = QHBoxLayout(self.sort_container)
+        sort_layout.setContentsMargins(0, 0, 0, 0)
+        sort_layout.setSpacing(4)
+
+        sort_lbl = QLabel("排序:", self.sort_container)
+        sort_lbl.setStyleSheet("color: #475569; font-size: 12px; font-weight: 600;")
+        sort_layout.addWidget(sort_lbl)
+
+        self.sort_group = QButtonGroup(self)
+        self.sort_group.setExclusive(True)
+
+        sort_btn_style = """
+            QPushButton {
+                background-color: #F1F5F9;
+                border: 1px solid #CBD5E1;
+                border-radius: 6px;
+                color: #334155;
+                font-size: 12px;
+                font-weight: 500;
+                padding: 4px 10px;
+                height: 24px;
+            }
+            QPushButton:hover {
+                background-color: #E2E8F0;
+                color: #0F172A;
+            }
+            QPushButton:checked {
+                background-color: #EFF6FF;
+                border: 1.5px solid #0078D4;
+                color: #0078D4;
+                font-weight: 700;
+            }
+        """
+
+        self.sort_asc_btn = QPushButton("正序", self.sort_container)
+        self.sort_asc_btn.setStyleSheet(sort_btn_style)
+        self.sort_asc_btn.setCheckable(True)
+        self.sort_asc_btn.setChecked(True)
+        self.sort_asc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sort_group.addButton(self.sort_asc_btn)
+        self.sort_asc_btn.toggled.connect(lambda chk: self._on_sort_toggled(chk, "asc"))
+        sort_layout.addWidget(self.sort_asc_btn)
+
+        self.sort_desc_btn = QPushButton("倒序", self.sort_container)
+        self.sort_desc_btn.setStyleSheet(sort_btn_style)
+        self.sort_desc_btn.setCheckable(True)
+        self.sort_desc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sort_group.addButton(self.sort_desc_btn)
+        self.sort_desc_btn.toggled.connect(lambda chk: self._on_sort_toggled(chk, "desc"))
+        sort_layout.addWidget(self.sort_desc_btn)
+
+        self.sort_random_btn = QPushButton("随机", self.sort_container)
+        self.sort_random_btn.setIcon(create_icon("shuffle", color="#475569", size=13))
+        self.sort_random_btn.setStyleSheet(sort_btn_style)
+        self.sort_random_btn.setCheckable(True)
+        self.sort_random_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sort_group.addButton(self.sort_random_btn)
+        self.sort_random_btn.toggled.connect(lambda chk: self._on_sort_toggled(chk, "random"))
+        sort_layout.addWidget(self.sort_random_btn)
+
+        control_bar.addWidget(self.sort_container)
+        self.sort_container.hide()
+
         control_bar.addStretch()
 
         # Right Search Box & Actions
         self.search_input = QLineEdit(self)
         self.search_input.setFixedWidth(280)
         self.search_input.setFixedHeight(34)
-        self.search_input.setPlaceholderText("搜索壁纸（星空/动漫/赛博朋克）...")
+        self.search_input.setPlaceholderText("搜索壁纸（必应/摄影/4K/动漫/风景）...")
         self.search_input.returnPressed.connect(self._on_search)
         control_bar.addWidget(self.search_input)
 
@@ -310,7 +388,17 @@ class GalleryPage(QWidget):
         self.search_tag_widget.hide()
         self.header_info_widget.show()
 
+        if cat_id == "picsum":
+            self.sort_container.show()
+        else:
+            self.sort_container.hide()
+
         self.load_page(1)
+
+    def _on_sort_toggled(self, checked: bool, order: str) -> None:
+        if checked and self._current_cat_id == "picsum":
+            self._picsum_sort_order = order
+            self.load_page(1)
 
     def _on_search(self) -> None:
         kw = self.search_input.text().strip()
@@ -321,6 +409,7 @@ class GalleryPage(QWidget):
         # Update UI to search mode
         self.cat_tab_bar.clear_selection()
         self.header_info_widget.hide()
+        self.sort_container.hide()
         self.search_tag_lbl.setText(f"搜索关键词:  \"{kw}\"")
         self.search_tag_widget.show()
 
@@ -329,6 +418,8 @@ class GalleryPage(QWidget):
     def _on_reset_search(self) -> None:
         self.search_input.clear()
         self._current_keyword = ""
+        if self._current_cat_id == "picsum":
+            self.sort_container.show()
         self.cat_tab_bar.select_category(self._current_cat_id)
 
     def load_page(self, page_num: int) -> None:
@@ -347,6 +438,7 @@ class GalleryPage(QWidget):
             keyword=self._current_keyword,
             start=start,
             count=self._page_size,
+            sort_order=self._picsum_sort_order,
             parent=self,
         )
         self._active_workers.add(worker)

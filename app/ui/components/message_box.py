@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 import sys
 from ctypes import byref, c_int, sizeof
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -49,12 +50,14 @@ class ModernMessageBox(QDialog):
         confirm_mode: bool = False,
         ok_text: str = "确定",
         cancel_text: str = "取消",
+        open_folder_path: Path | str | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(380)
-        self.setMaximumWidth(520)
+        self.setMaximumWidth(540)
         self.confirm_mode = confirm_mode
+        self.open_folder_path = Path(open_folder_path) if open_folder_path else None
 
         self._init_ui(title, message, dialog_type, ok_text, cancel_text)
 
@@ -143,6 +146,30 @@ class ModernMessageBox(QDialog):
         btn_row.setSpacing(10)
         btn_row.addStretch()
 
+        if self.open_folder_path:
+            open_btn = QPushButton("打开所在目录", self)
+            open_btn.setIcon(create_icon("folder", color="#334155", size=15))
+            open_btn.setFixedHeight(34)
+            open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            open_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #F1F5F9;
+                    color: #334155;
+                    border: 1px solid #CBD5E1;
+                    border-radius: 6px;
+                    font-weight: 600;
+                    font-size: 13px;
+                    padding: 0 14px;
+                }
+                QPushButton:hover {
+                    background-color: #E2E8F0;
+                    border-color: #94A3B8;
+                    color: #0F172A;
+                }
+            """)
+            open_btn.clicked.connect(self._on_open_folder)
+            btn_row.addWidget(open_btn)
+
         if self.confirm_mode:
             cancel_btn = QPushButton(cancel_text, self)
             cancel_btn.setFixedHeight(34)
@@ -196,9 +223,34 @@ class ModernMessageBox(QDialog):
 
         layout.addLayout(btn_row)
 
+    def _on_open_folder(self) -> None:
+        if self.open_folder_path:
+            open_directory(self.open_folder_path)
+            self.accept()
+
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
         force_window_light_mode(int(self.winId()))
+
+
+def open_directory(file_path: Path | str) -> None:
+    """Opens Windows Explorer with the specific file selected, or opens parent directory."""
+    p = Path(file_path).resolve()
+    if sys.platform == "win32":
+        try:
+            if p.exists():
+                import subprocess
+                subprocess.Popen(["explorer", f"/select,{p}"])
+            elif p.parent.exists():
+                import os
+                os.startfile(str(p.parent))
+        except Exception as e:
+            print(f"Error opening directory for {p}: {e}")
+            try:
+                import os
+                os.startfile(str(p.parent))
+            except Exception:
+                pass
 
 
 def show_info(parent: QWidget | None, title: str, message: str) -> None:
@@ -210,6 +262,20 @@ def show_info(parent: QWidget | None, title: str, message: str) -> None:
 def show_success(parent: QWidget | None, title: str, message: str) -> None:
     """Shows a crisp Light Fusion success dialog."""
     dlg = ModernMessageBox(title, message, dialog_type="success", parent=parent)
+    dlg.exec()
+
+
+def show_save_success(parent: QWidget | None, file_path: Path | str, title: str = "保存成功") -> None:
+    """Shows a crisp Light Fusion success dialog when saving wallpaper with 1-click open directory button."""
+    path_obj = Path(file_path).resolve()
+    dlg = ModernMessageBox(
+        title=title,
+        message=f"壁纸已成功保存至:\n{path_obj}",
+        dialog_type="success",
+        parent=parent,
+        ok_text="确定",
+        open_folder_path=path_obj,
+    )
     dlg.exec()
 
 

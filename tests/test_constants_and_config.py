@@ -2,12 +2,17 @@
 
 import tempfile
 from pathlib import Path
-from app.constants import CATEGORIES, CATEGORY_MAP, WALLPAPER_STYLES
+from app.constants import APP_VERSION, CATEGORIES, CATEGORY_MAP, WALLPAPER_STYLES
 from app.config import ConfigManager
 
 
 def test_categories_count():
-    assert len(CATEGORIES) == 15
+    assert APP_VERSION == "1.1.0"
+    assert len(CATEGORIES) == 18
+    assert "bing" in CATEGORY_MAP
+    assert CATEGORY_MAP["bing"] == "必应壁纸"
+    assert "picsum" in CATEGORY_MAP
+    assert CATEGORY_MAP["picsum"] == "Picsum 图库"
     assert "36" in CATEGORY_MAP
     assert CATEGORY_MAP["36"] == "4K专区"
     assert CATEGORY_MAP["9"] == "风景大片"

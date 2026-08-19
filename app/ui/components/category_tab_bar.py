@@ -22,6 +22,8 @@ from ..icons import create_fluent_icon
 # Microsoft Fluent Category Vector Icons
 CATEGORY_ICONS = {
     "latest": "cat_latest",
+    "bing": "cat_bing",
+    "picsum": "cat_picsum",
     "36": "cat_4k",
     "9": "cat_landscape",
     "26": "cat_anime",

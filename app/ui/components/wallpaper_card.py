@@ -21,7 +21,7 @@ from ...core.api_client import api_client
 from ...core.database import db
 from ...core.image_loader import image_loader
 from ..icons import create_icon
-from .message_box import show_info, show_success, show_warning
+from .message_box import show_info, show_save_success, show_success, show_warning
 
 
 def extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
@@ -271,7 +271,7 @@ class WallpaperCard(QFrame):
 
         ok = api_client.download_image(url, target)
         if ok:
-            show_success(self, "保存成功", f"壁纸已成功保存至:\n{target}")
+            show_save_success(self, target)
         else:
             show_warning(self, "保存失败", "下载壁纸失败，请检查网络连接")
 

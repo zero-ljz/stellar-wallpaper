@@ -27,7 +27,7 @@ def build(onefile: bool = False, clean: bool = True) -> None:
         "--windowed",  # No console window
         "--name=StellarWallpaper",
         f"--add-data={resources_dir};app/resources",
-        "--hidden-import=pyside6_modern_widgets",
+        "--collect-all=pyside6_modern_widgets",
         "--hidden-import=PySide6.QtSvg",
         "--hidden-import=PySide6.QtWidgets",
         "--hidden-import=PySide6.QtCore",

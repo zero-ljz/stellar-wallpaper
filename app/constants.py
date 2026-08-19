@@ -5,7 +5,7 @@ from pathlib import Path
 
 APP_NAME = "星澜壁纸"
 APP_ID = "com.stellar.wallpaper"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # Application data directories
 DEFAULT_APP_DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "StellarWallpaper"
@@ -17,9 +17,11 @@ DB_PATH = DEFAULT_APP_DATA_DIR / "wallpaper.db"
 # Default save folder for user downloads
 DEFAULT_DOWNLOAD_DIR = Path.home() / "Pictures" / "Wallpapers"
 
-# 16 Curated Wallpaper Categories (including Latest)
+# 18 Curated Wallpaper Categories & Sources (including Latest, Bing, Picsum)
 CATEGORIES = [
     {"id": "latest", "name": "最新壁纸", "desc": "全网最新上传精选壁纸"},
+    {"id": "bing", "name": "必应壁纸", "desc": "微软 Bing 每日与历年历史精选大图库"},
+    {"id": "picsum", "name": "Picsum 图库", "desc": "Lorem Picsum 随机艺术摄影大片"},
     {"id": "36", "name": "4K专区", "desc": "3840×2160 超高清壁纸"},
     {"id": "9", "name": "风景大片", "desc": "壮美自然、山川湖海"},
     {"id": "26", "name": "动漫卡通", "desc": "二次元、精选动漫CG"},
@@ -45,6 +47,13 @@ API_360_BASE = "http://wallpaper.apc.360.cn/index.php"
 API_360_CATEGORY = f"{API_360_BASE}?c=WallPaper&a=getAppsByCategory"
 API_360_SEARCH = f"{API_360_BASE}?c=WallPaper&a=getAppsByTags"
 API_360_ORDER = f"{API_360_BASE}?c=WallPaper&a=getAppsByOrder"
+
+# Bing Wallpaper API Endpoints (Official Today + Multi-Year Historical Archive)
+API_BING_BASE = "https://cn.bing.com/HPImageArchive.aspx"
+API_BING_ARCHIVE = "https://bing.npanuhin.me/CN-zh.json"
+
+# Lorem Picsum Photos API Endpoint
+API_PICSUM_BASE = "https://picsum.photos"
 
 # User-Agent for requests
 DEFAULT_USER_AGENT = (

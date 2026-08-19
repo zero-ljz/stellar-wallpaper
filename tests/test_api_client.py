@@ -47,6 +47,91 @@ def test_api_client_pool():
     assert res.get("category_id") in ["36", "9"]
 
 
+def test_api_client_bing():
+    client = WallpaperApiClient()
+    res = client.get_bing_wallpapers(start=0, count=4)
+    assert "items" in res
+    assert len(res["items"]) > 0
+    assert res.get("total", 0) >= 800
+    first = res["items"][0]
+    assert first.get("category_id") == "bing"
+    assert first.get("category_name") == "必应壁纸"
+    assert "url" in first
+    assert "url_thumb" in first
+    assert "title" in first
+    assert "date" in first
+
+    # Test pagination further in history (e.g. page 2)
+    res_page2 = client.get_bing_wallpapers(start=4, count=4)
+    assert len(res_page2["items"]) > 0
+    assert res_page2["items"][0]["id"] != first["id"]
+
+
+def test_api_client_picsum():
+    client = WallpaperApiClient()
+    # Ascending
+    res_asc = client.get_picsum_wallpapers(start=0, count=4, sort_order="asc")
+    assert "items" in res_asc
+    assert len(res_asc["items"]) > 0
+    first_asc = res_asc["items"][0]
+    assert first_asc.get("category_id") == "picsum"
+    assert first_asc.get("category_name") == "Picsum 图库"
+    assert "url" in first_asc
+    assert "url_thumb" in first_asc
+    assert "author" in first_asc
+
+    # Descending
+    res_desc = client.get_picsum_wallpapers(start=0, count=4, sort_order="desc")
+    assert "items" in res_desc
+    assert len(res_desc["items"]) > 0
+    first_desc = res_desc["items"][0]
+    assert first_desc.get("category_id") == "picsum"
+    # In desc order, the ID is different from asc (e.g. 1084 vs 0)
+    assert first_desc.get("id") != first_asc.get("id")
+
+    # Random
+    res_rand = client.get_picsum_wallpapers(start=0, count=4, sort_order="random")
+    assert "items" in res_rand
+    assert len(res_rand["items"]) > 0
+
+
+def test_api_client_category_routing():
+    client = WallpaperApiClient()
+    bing_res = client.get_category_wallpapers("bing", start=0, count=2)
+    assert len(bing_res["items"]) > 0
+    assert bing_res["items"][0]["category_id"] == "bing"
+
+    picsum_res = client.get_category_wallpapers("picsum", start=0, count=2)
+    assert len(picsum_res["items"]) > 0
+    assert picsum_res["items"][0]["category_id"] == "picsum"
+
+
+def test_api_client_search_routing():
+    client = WallpaperApiClient()
+    res_bing = client.search_wallpapers("必应", start=0, count=2)
+    assert len(res_bing["items"]) > 0
+    assert res_bing["items"][0]["category_id"] == "bing"
+
+    res_picsum = client.search_wallpapers("picsum", start=0, count=2)
+    assert len(res_picsum["items"]) > 0
+    assert res_picsum["items"][0]["category_id"] == "picsum"
+
+
+def test_api_client_random_bing():
+    client = WallpaperApiClient()
+    res = client.fetch_random_from_bing()
+    assert res is not None
+    assert res.get("category_id") == "bing"
+    assert res.get("local_path") is not None
+
+
+def test_api_client_random_picsum():
+    client = WallpaperApiClient()
+    res = client.fetch_random_from_picsum()
+    assert res is not None
+    assert res.get("category_id") == "picsum"
+    assert res.get("local_path") is not None
+
 
 def test_cache_manager_hash():
     mgr = CacheManager()

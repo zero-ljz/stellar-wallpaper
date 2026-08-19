@@ -30,6 +30,18 @@ def test_category_tab_bar_initialization_and_selection():
     assert selected[0][0] == "9"
     assert selected[0][1] == "风景大片"
 
+    tab_bar.select_category("bing")
+    assert tab_bar.get_current_category_id() == "bing"
+    assert len(selected) == 2
+    assert selected[1][0] == "bing"
+    assert selected[1][1] == "必应壁纸"
+
+    tab_bar.select_category("picsum")
+    assert tab_bar.get_current_category_id() == "picsum"
+    assert len(selected) == 3
+    assert selected[2][0] == "picsum"
+    assert selected[2][1] == "Picsum 图库"
+
     tab_bar.clear_selection()
     for btn in tab_bar._buttons.values():
         assert not btn.isChecked()

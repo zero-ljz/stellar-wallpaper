@@ -27,7 +27,7 @@ from ...core.cache_manager import cache_mgr
 from ...core.database import db
 from ...core.image_loader import image_loader
 from ..icons import create_icon
-from .message_box import force_window_light_mode, show_info, show_success, show_warning
+from .message_box import force_window_light_mode, show_info, show_save_success, show_success, show_warning
 
 
 def _extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
@@ -222,11 +222,11 @@ class PreviewDialog(QDialog):
         if cached.exists():
             import shutil
             shutil.copy2(cached, target)
-            show_success(self, "保存成功", f"壁纸已保存到:\n{target}")
+            show_save_success(self, target)
         else:
             ok = api_client.download_image(url, target)
             if ok:
-                show_success(self, "保存成功", f"壁纸已保存到:\n{target}")
+                show_save_success(self, target)
             else:
                 show_warning(self, "保存失败", "保存壁纸失败，请重试")
 

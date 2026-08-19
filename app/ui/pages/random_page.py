@@ -35,6 +35,8 @@ from ..icons import create_fluent_icon, create_icon
 # Microsoft Fluent Category Vector Icons
 CATEGORY_ICONS = {
     "latest": "cat_latest",
+    "bing": "cat_bing",
+    "picsum": "cat_picsum",
     "36": "cat_4k",
     "9": "cat_landscape",
     "26": "cat_anime",
@@ -264,18 +266,18 @@ class RandomSwitcherPage(QWidget):
         self.clear_all_btn.clicked.connect(self._clear_all_categories)
         cat_hdr.addWidget(self.clear_all_btn)
 
-        self.recommend_btn = QPushButton("精选组合 (4K+风景+动漫)", cat_card)
+        self.recommend_btn = QPushButton("精选组合 (4K+必应+Picsum+风景)", cat_card)
         self.recommend_btn.setIcon(create_icon("sparkle", color="#475569", size=14))
         self.recommend_btn.clicked.connect(self._select_recommended_categories)
         cat_hdr.addWidget(self.recommend_btn)
 
         cat_vbox.addLayout(cat_hdr)
 
-        # Grid of 16 Category Chip buttons (4 columns x 4 rows)
+        # Grid of Category Chip buttons (3 columns)
         cat_grid = QGridLayout()
         cat_grid.setSpacing(10)
 
-        cols = 4
+        cols = 3
         for idx, cat in enumerate(CATEGORIES):
             r = idx // cols
             c = idx % cols
@@ -403,7 +405,7 @@ class RandomSwitcherPage(QWidget):
             self._category_chips["36"].setChecked(True)
 
     def _select_recommended_categories(self) -> None:
-        recommended = {"36", "9", "26"}  # 4K, Landscape, Anime
+        recommended = {"36", "bing", "picsum", "9", "26"}  # 4K, Bing, Picsum, Landscape, Anime
         for cid, chip in self._category_chips.items():
             chip.setChecked(cid in recommended)
 
