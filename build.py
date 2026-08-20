@@ -32,8 +32,19 @@ def build(onefile: bool = False, clean: bool = True) -> None:
         "--hidden-import=PySide6.QtWidgets",
         "--hidden-import=PySide6.QtCore",
         "--hidden-import=PySide6.QtGui",
-        "--hidden-import=PySide6.QtNetwork",
         "--hidden-import=sqlite3",
+        "--exclude-module=PySide6.QtNetwork",
+        "--exclude-module=PySide6.QtQml",
+        "--exclude-module=PySide6.QtQuick",
+        "--exclude-module=PySide6.QtQuick3D",
+        "--exclude-module=PySide6.QtPdf",
+        "--exclude-module=PySide6.QtWebEngine",
+        "--exclude-module=PySide6.QtWebEngineCore",
+        "--exclude-module=PySide6.QtWebEngineWidgets",
+        "--exclude-module=PySide6.QtMultimedia",
+        "--exclude-module=PySide6.QtSql",
+        "--exclude-module=PySide6.QtTest",
+        "--exclude-module=PySide6.QtXml",
     ]
 
     if icon_path.exists():
@@ -59,6 +70,12 @@ def build(onefile: bool = False, clean: bool = True) -> None:
             print(f"  Executable created at: {exe_file}")
         else:
             exe_file = dist_dir / "StellarWallpaper" / "StellarWallpaper.exe"
+            # Delete opengl32sw.dll to save space
+            opengl_dll = dist_dir / "StellarWallpaper" / "_internal" / "PySide6" / "opengl32sw.dll"
+            if opengl_dll.exists():
+                opengl_dll.unlink()
+                print("  Removed opengl32sw.dll (saved extra space)")
+            
             print(f"  Directory created at: {dist_dir / 'StellarWallpaper'}")
             print(f"  Executable: {exe_file}")
         print("========================================================")
