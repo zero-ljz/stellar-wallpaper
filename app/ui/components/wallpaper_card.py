@@ -83,7 +83,7 @@ class WallpaperCard(QFrame):
         cat_name = self.item_data.get("category_name") or "壁纸"
         self.cat_badge = QLabel(cat_name, self.img_container)
         self.cat_badge.setStyleSheet("""
-            background-color: rgba(15, 23, 42, 0.7);
+            background-color: rgba(51, 65, 85, 0.25);
             color: #FFFFFF;
             font-size: 10px;
             font-weight: 600;
@@ -97,7 +97,7 @@ class WallpaperCard(QFrame):
         if resolution:
             self.res_badge = QLabel(resolution, self.img_container)
             self.res_badge.setStyleSheet("""
-                background-color: rgba(0, 120, 212, 0.85);
+                background-color: rgba(56, 139, 202, 0.28);
                 color: #FFFFFF;
                 font-size: 10px;
                 font-weight: 500;

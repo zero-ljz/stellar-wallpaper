@@ -2,21 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt, QTimer, Signal
-from PySide6.QtGui import QCloseEvent, QIcon, QPixmap
-from PySide6.QtWidgets import (
-    QApplication,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QCloseEvent
+from PySide6.QtWidgets import QApplication, QWidget
 from pyside6_modern_widgets import ModernWindow, NavigationPosition, NavigationView
 
 from ..config import config
@@ -40,13 +30,22 @@ class MainWindow(ModernWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
-        self.resize(1240, 780)
         self.setMinimumSize(1000, 620)
+        screen = QApplication.primaryScreen()
+        available_size = screen.availableGeometry().size() if screen else QSize(1240, 780)
+        self.resize(self._initial_window_size(available_size))
         self.setWindowIcon(create_default_tray_icon())
+        self._was_maximized_before_tray = False
 
         self._init_ui()
         self._init_tray()
         self._init_events()
+
+    @staticmethod
+    def _initial_window_size(available_size: QSize) -> QSize:
+        width = min(1240, max(1000, int(available_size.width() * 0.9)))
+        height = min(780, max(620, int(available_size.height() * 0.9)))
+        return QSize(width, height)
 
     def _init_ui(self) -> None:
         # Initialize floating desktop notification service
@@ -151,7 +150,13 @@ class MainWindow(ModernWindow):
         scheduler.trigger_switch(specific_item=item_data)
 
     def _show_and_activate(self) -> None:
-        self.showNormal()
+        restore_maximized = self._was_maximized_before_tray or self.isMaximized()
+        if not self.isVisible() or self.isMinimized():
+            if restore_maximized:
+                self.showMaximized()
+            else:
+                self.showNormal()
+        self._was_maximized_before_tray = False
         self.activateWindow()
         self.raise_()
 
@@ -181,6 +186,7 @@ class MainWindow(ModernWindow):
             return
 
         if config.close_to_tray and hasattr(self, "tray_icon") and self.tray_icon.isVisible():
+            self._was_maximized_before_tray = self.isMaximized()
             self.hide()
             event.ignore()
             get_desktop_notification().show_success(f"{APP_NAME}已最小化到系统托盘", "双击托盘图标可重新打开主窗口")
@@ -191,4 +197,3 @@ class MainWindow(ModernWindow):
             scheduler.stop()
             event.accept()
             QApplication.quit()
-

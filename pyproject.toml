@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyside6==6.8.3",
-    "pyside6-modern-widgets==0.1.2",
+    "pyside6-modern-widgets==0.3.2",
 ]
 
 [dependency-groups]
@@ -19,4 +19,3 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-
