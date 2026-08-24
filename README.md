@@ -54,6 +54,7 @@
    - 完整的系统托盘图标（`QSystemTrayIcon`）与右键菜单。
    - 托盘快捷切换下一张、暂停/恢复定时轮播、打开保存目录。
    - 壁纸更换完成桌面气泡通知与关闭时最小化到托盘。
+   - 支持单实例运行；重复启动时会自动唤醒并恢复已有窗口。
 
 ---
 
@@ -62,31 +63,38 @@
 - **操作系统**: Windows 10 / Windows 11 (64-bit)
 - **Python**: 3.12+
 - **GUI 框架**: PySide6 6.8.3
-- **现代化组件**: pyside6-modern-widgets 0.1.2
+- **现代化组件**: pyside6-modern-widgets 0.3.3
 
 ---
 
 ## 🚀 快速启动
 
-### 1. 安装依赖
+### 1. 获取源码
+
+```bash
+git clone --branch main https://github.com/zero-ljz/stellar-wallpaper.git
+cd stellar-wallpaper
+```
+
+### 2. 安装依赖
 
 ```bash
 uv sync
 ```
 
-### 2. 启动应用
+### 3. 启动应用
 
 ```bash
 uv run python main.py
 ```
 
-### 3. 运行单元测试
+### 4. 运行单元测试
 
 ```bash
 uv run pytest
 ```
 
-### 4. 打包单文件独立版
+### 5. 打包单文件独立版
 
 ```bash
 uv run python build.py --onefile
@@ -99,5 +107,4 @@ uv run python build.py --onefile
 ## 📄 开源许可
 
 本项目遵循 MIT 开源许可证。源码地址：[https://github.com/zero-ljz/stellar-wallpaper](https://github.com/zero-ljz/stellar-wallpaper)
-
 
