@@ -7,6 +7,15 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%206.8.3-green.svg)](https://wiki.qt.io/Qt_for_Python)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4.svg)](https://microsoft.com/windows)
+[![Download](https://img.shields.io/badge/download-latest%20release-0078D4.svg?logo=github)](https://github.com/zero-ljz/stellar-wallpaper/releases/latest/download/StellarWallpaper.exe)
+
+---
+
+## 📥 下载
+
+[下载最新版 StellarWallpaper.exe](https://github.com/zero-ljz/stellar-wallpaper/releases/latest/download/StellarWallpaper.exe)
+
+该链接始终指向最新 Release 中名为 `StellarWallpaper.exe` 的附件。
 
 ---
 
@@ -107,4 +116,3 @@ uv run python build.py --onefile
 ## 📄 开源许可
 
 本项目遵循 MIT 开源许可证。源码地址：[https://github.com/zero-ljz/stellar-wallpaper](https://github.com/zero-ljz/stellar-wallpaper)
-
