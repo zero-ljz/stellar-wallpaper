@@ -5,7 +5,7 @@ from pathlib import Path
 
 APP_NAME = "星澜壁纸"
 APP_ID = "com.stellar.wallpaper"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 # Application data directories
 DEFAULT_APP_DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "StellarWallpaper"
