@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QSize
 from PySide6.QtGui import QCloseEvent
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication, QLayout, QWidget
 from pyside6_modern_widgets import ModernWindow, NavigationPosition, NavigationView
 
 from ..config import config
@@ -15,13 +14,13 @@ from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
 from .components.tray_icon import AppTrayIcon, create_default_tray_icon
 from .icons import create_icon
-from .theme import force_window_light_mode
 from .pages.favorites_page import FavoritesPage
 from .pages.gallery_page import GalleryPage
 from .pages.history_page import HistoryPage
 from .pages.random_page import RandomSwitcherPage
 from .pages.scheduler_page import SchedulerPage
 from .pages.settings_page import SettingsPage
+from .theme import force_window_light_mode
 
 
 class MainWindow(ModernWindow):
@@ -30,22 +29,17 @@ class MainWindow(ModernWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
-        self.setMinimumSize(1000, 620)
-        screen = QApplication.primaryScreen()
-        available_size = screen.availableGeometry().size() if screen else QSize(1240, 780)
-        self.resize(self._initial_window_size(available_size))
         self.setWindowIcon(create_default_tray_icon())
         self._was_maximized_before_tray = False
 
         self._init_ui()
+        window_layout = self.layout()
+        if window_layout is not None:
+            window_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        self.setMinimumWidth(850)
+        self.resize(930, 650)
         self._init_tray()
         self._init_events()
-
-    @staticmethod
-    def _initial_window_size(available_size: QSize) -> QSize:
-        width = min(1240, max(1000, int(available_size.width() * 0.9)))
-        height = min(780, max(620, int(available_size.height() * 0.9)))
-        return QSize(width, height)
 
     def _init_ui(self) -> None:
         # Initialize floating desktop notification service
