@@ -77,9 +77,24 @@ def test_tray_restore_preserves_normal_state() -> None:
     assert window.calls == ["showNormal", "activateWindow", "raise"]
 
 
-def test_initial_window_size_fits_high_dpi_available_geometry() -> None:
-    assert MainWindow._initial_window_size(QSize(1280, 752)) == QSize(1152, 676)
-    assert MainWindow._initial_window_size(QSize(1920, 1080)) == QSize(1240, 780)
+def test_initial_window_uses_compact_default_size() -> None:
+    get_qapp()
+
+    class LightweightMainWindow(MainWindow):
+        def _init_ui(self) -> None:
+            pass
+
+        def _init_tray(self) -> None:
+            pass
+
+        def _init_events(self) -> None:
+            pass
+
+    window = LightweightMainWindow()
+
+    assert window.size() == QSize(930, 650)
+    assert window.minimumWidth() == 850
+    assert window.minimumHeight() == 0
 
 
 def test_tray_restore_keeps_title_bar_in_restore_state() -> None:

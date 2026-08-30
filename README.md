@@ -72,7 +72,7 @@
 - **操作系统**: Windows 10 / Windows 11 (64-bit)
 - **Python**: 3.12+
 - **GUI 框架**: PySide6 6.8.3
-- **现代化组件**: pyside6-modern-widgets 0.3.3
+- **现代化组件**: pyside6-modern-widgets
 
 ---
 

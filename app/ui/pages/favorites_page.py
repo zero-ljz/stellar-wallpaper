@@ -78,7 +78,7 @@ class FavoritesPage(QWidget):
         title_row.addStretch()
         title_box.addLayout(title_row)
 
-        desc_lbl = QLabel("收藏您心仪的高清壁纸，支持随时一键设为桌面壁纸或加入轮播池", self)
+        desc_lbl = QLabel("收藏您心仪的壁纸，支持随时一键设为桌面壁纸或加入轮播池", self)
         desc_lbl.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px;")
         title_box.addWidget(desc_lbl)
         header.addLayout(title_box)
