@@ -555,30 +555,4 @@ QToolTip {{
     font-weight: 600;
 }}
 
-/* Context Menus - Modern Windows 11 Fluent Style */
-QMenu {{
-    background-color: #FFFFFF;
-    border: 1px solid #CBD5E1;
-    border-radius: 8px;
-    padding: 6px;
-}}
-QMenu::item {{
-    padding: 8px 24px 8px 38px;
-    border-radius: 6px;
-    color: #0B0F19;
-    font-size: 13px;
-    margin: 2px 2px;
-}}
-QMenu::item:selected {{
-    background-color: #EFF6FF;
-    color: #0078D4;
-}}
-QMenu::icon {{
-    left: 12px;
-}}
-QMenu::separator {{
-    height: 1px;
-    background: #E2E8F0;
-    margin: 4px 6px;
-}}
 """

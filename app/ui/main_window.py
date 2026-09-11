@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import ctypes
+import os
+import sys
+from pathlib import Path
 from typing import Any
 
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import QApplication, QLayout, QWidget
-from pyside6_modern_widgets import ModernWindow, NavigationPosition, NavigationView
+from pyside6_modern_widgets import (
+    ModernMenuBar,
+    ModernWindow,
+    NavigationPosition,
+    NavigationView,
+)
 
 from ..config import config
 from ..constants import APP_NAME, APP_VERSION
@@ -30,6 +40,7 @@ class MainWindow(ModernWindow):
         super().__init__(parent)
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
         self.setWindowIcon(create_default_tray_icon())
+        self.setTitleAlignment("center")
         self._was_maximized_before_tray = False
 
         self._init_ui()
@@ -40,6 +51,47 @@ class MainWindow(ModernWindow):
         self.resize(930, 650)
         self._init_tray()
         self._init_events()
+
+    def showMaximized(self) -> None:
+        """Preserve the normal geometry when maximizing on Windows.
+
+        pyside6-modern-widgets 0.5.3 delegates this transition to Qt. A
+        maximized window restored from the tray can consequently lose its
+        previous normal geometry, so retain it before invoking Win32.
+        """
+        if sys.platform != "win32":
+            super().showMaximized()
+            return
+
+        if not self.isMaximized():
+            geometry = self.geometry()
+            if geometry.isValid():
+                self._normal_geometry_before_maximize = QRect(geometry)
+        if self.isHidden():
+            self.show()
+        ctypes.windll.user32.ShowWindow(int(self.winId()), 3)  # SW_MAXIMIZE
+        self._sync_window_state_style()
+
+    def showNormal(self) -> None:
+        """Restore the geometry captured before a Windows maximization."""
+        if sys.platform != "win32":
+            super().showNormal()
+            return
+
+        geometry = getattr(self, "_normal_geometry_before_maximize", None)
+        if self.isHidden():
+            self.show()
+        ctypes.windll.user32.ShowWindow(int(self.winId()), 9)  # SW_RESTORE
+        if isinstance(geometry, QRect) and geometry.isValid():
+            self.setGeometry(geometry)
+        self._normal_geometry_before_maximize = None
+        self._sync_window_state_style()
+
+    def _is_native_maximized(self) -> bool:
+        """Report the Win32 maximize state for title-bar state checks."""
+        if sys.platform != "win32":
+            return self.isMaximized()
+        return bool(ctypes.windll.user32.IsZoomed(int(self.winId())))
 
     def _init_ui(self) -> None:
         # Initialize floating desktop notification service
@@ -101,6 +153,8 @@ class MainWindow(ModernWindow):
             position=NavigationPosition.BOTTOM,
         )
 
+        self._init_menu_bar()
+
         # Collapse sidebar by default on startup
         if hasattr(self.nav_view, "sidebar"):
             self.nav_view.sidebar.setCollapsed(True, animated=False)
@@ -109,6 +163,70 @@ class MainWindow(ModernWindow):
 
         # Hook page refresh on tab switch
         self.nav_view.currentChanged.connect(self._on_page_changed)
+
+    def _init_menu_bar(self) -> None:
+        self.menu_bar = ModernMenuBar(self)
+        self.menu_bar.setNativeMenuBar(False)
+
+        wallpaper_menu = self.menu_bar.addMenu("壁纸(&W)")
+        self.next_wallpaper_action = wallpaper_menu.addAction(
+            create_icon("shuffle", "#475569", size=16),
+            "切换下一张壁纸",
+        )
+        self.next_wallpaper_action.triggered.connect(self._trigger_next_wallpaper)
+
+        self.auto_rotation_action = wallpaper_menu.addAction(
+            create_icon("timer", "#475569", size=16),
+            "自动轮播",
+        )
+        self.auto_rotation_action.setCheckable(True)
+        self.auto_rotation_action.setChecked(scheduler.is_running)
+        self.auto_rotation_action.triggered.connect(self._set_auto_rotation_enabled)
+        wallpaper_menu.aboutToShow.connect(self._sync_menu_bar_state)
+
+        view_menu = self.menu_bar.addMenu("视图(&V)")
+        self.navigation_action_group = QActionGroup(self)
+        self.navigation_action_group.setExclusive(True)
+        self.navigation_actions: list[QAction] = []
+        page_entries = (
+            ("探索发现", "gallery"),
+            ("随机切换", "shuffle"),
+            ("定时更换", "timer"),
+            ("我的收藏", "heart"),
+            ("历史记录", "history"),
+            ("设置中心", "settings"),
+        )
+        for index, (title, icon_name) in enumerate(page_entries):
+            action = view_menu.addAction(create_icon(icon_name, "#475569", size=16), title)
+            action.setCheckable(True)
+            action.setChecked(index == self.nav_view.currentIndex())
+            action.triggered.connect(
+                lambda _checked=False, target=index: self.nav_view.setCurrentIndex(target)
+            )
+            self.navigation_action_group.addAction(action)
+            self.navigation_actions.append(action)
+
+        program_menu = self.menu_bar.addMenu("程序(&P)")
+        open_folder_action = program_menu.addAction(
+            create_icon("folder", "#475569", size=16),
+            "打开壁纸保存目录",
+        )
+        open_folder_action.triggered.connect(self._open_download_dir)
+        settings_action = program_menu.addAction(
+            create_icon("settings", "#475569", size=16),
+            "设置中心",
+        )
+        settings_action.triggered.connect(self._open_settings)
+        program_menu.addSeparator()
+        quit_action = program_menu.addAction(
+            create_icon("power", "#DC2626", size=16),
+            "退出程序",
+        )
+        quit_action.setShortcut(QKeySequence("Ctrl+Q"))
+        quit_action.triggered.connect(self.force_quit)
+
+        if self.titleBar is not None:
+            self.titleBar.addCustomWidget(self.menu_bar, align="left")
 
     def _init_tray(self) -> None:
         self.tray_icon = AppTrayIcon(self)
@@ -128,9 +246,12 @@ class MainWindow(ModernWindow):
         scheduler.wallpaper_applied.connect(lambda _: self.history_page.refresh())
 
         # Start auto-rotation scheduler if enabled
+        scheduler.status_changed.connect(self.auto_rotation_action.setChecked)
         scheduler.start_if_enabled()
 
     def _on_page_changed(self, index: int) -> None:
+        if 0 <= index < len(self.navigation_actions):
+            self.navigation_actions[index].setChecked(True)
         current_page = self.nav_view.widget(index)
         if current_page == self.favorites_page:
             self.favorites_page.refresh()
@@ -139,6 +260,23 @@ class MainWindow(ModernWindow):
 
     def _trigger_next_wallpaper(self) -> None:
         scheduler.trigger_switch(source=config.auto_switch_source)
+
+    def _set_auto_rotation_enabled(self, enabled: bool) -> None:
+        if enabled == scheduler.is_running:
+            return
+        if enabled:
+            scheduler.start()
+        else:
+            scheduler.stop()
+
+    def _sync_menu_bar_state(self) -> None:
+        self.auto_rotation_action.setChecked(scheduler.is_running)
+
+    def _open_download_dir(self) -> None:
+        path = Path(config.download_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        if os.name == "nt":
+            os.startfile(str(path))
 
     def _apply_specific_wallpaper(self, item_data: dict[str, Any]) -> None:
         scheduler.trigger_switch(specific_item=item_data)
@@ -170,11 +308,11 @@ class MainWindow(ModernWindow):
         self.close()
         QApplication.quit()
 
-    def showEvent(self, event) -> None:  # noqa: N802
+    def showEvent(self, event) -> None:
         super().showEvent(event)
         force_window_light_mode(int(self.winId()))
 
-    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+    def closeEvent(self, event: QCloseEvent) -> None:
         if getattr(self, "_is_quitting", False):
             event.accept()
             return

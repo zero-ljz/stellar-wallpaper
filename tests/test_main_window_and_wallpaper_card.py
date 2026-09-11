@@ -3,11 +3,12 @@
 import sys
 from typing import Any, cast
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from pyside6_modern_widgets import ModernWindow
+from pyside6_modern_widgets import ModernMenu, ModernMenuBar, ModernWindow
 
+from app.ui.components.tray_icon import AppTrayIcon
 from app.ui.components.wallpaper_card import WallpaperCard
 from app.ui.main_window import MainWindow
 
@@ -97,6 +98,36 @@ def test_initial_window_uses_compact_default_size() -> None:
     assert window.minimumHeight() == 0
 
 
+def test_main_window_uses_title_bar_menu_and_centered_title(monkeypatch) -> None:
+    get_qapp()
+    monkeypatch.setattr("app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None)
+
+    class LightweightMainWindow(MainWindow):
+        def _init_tray(self) -> None:
+            pass
+
+        def _init_events(self) -> None:
+            pass
+
+    window = LightweightMainWindow()
+
+    assert isinstance(window.menu_bar, ModernMenuBar)
+    assert [action.text() for action in window.menu_bar.actions()] == [
+        "壁纸(&W)",
+        "视图(&V)",
+        "程序(&P)",
+    ]
+    assert all(isinstance(action.menu(), ModernMenu) for action in window.menu_bar.actions())
+    assert window.titleAlignment() == "center"
+    assert window.titleBar is not None
+    assert window.titleBar.titleLabel.alignment() & Qt.AlignmentFlag.AlignHCenter
+
+    window.navigation_actions[3].trigger()
+    assert window.nav_view.currentIndex() == 3
+    assert window.navigation_actions[3].isChecked()
+    window.hide()
+
+
 def test_tray_restore_keeps_title_bar_in_restore_state() -> None:
     app = get_qapp()
 
@@ -178,6 +209,15 @@ def test_minimized_maximized_window_restores_its_normal_geometry() -> None:
     assert not window.isMaximized()
     assert window.geometry() == normal_geometry
     window.close()
+
+
+def test_tray_uses_component_library_modern_menu() -> None:
+    get_qapp()
+
+    tray = AppTrayIcon()
+
+    assert isinstance(tray.contextMenu(), ModernMenu)
+    tray.hide()
 
 
 def test_wallpaper_badges_use_translucent_backgrounds(monkeypatch) -> None:

@@ -7,25 +7,24 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMenu,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
     QWidgetAction,
 )
+from pyside6_modern_widgets import ModernMenu
 
 from ...config import config
 from ...constants import APP_NAME, APP_VERSION
 from ...core.database import db
 from ...core.scheduler import scheduler
-from .desktop_notification import get_desktop_notification
 from ..icons import create_fluent_pixmap, create_icon
+from .desktop_notification import get_desktop_notification
 
 
 def create_default_tray_icon() -> QIcon:
@@ -145,40 +144,6 @@ class TrayHeaderWidget(QWidget):
             self.status_lbl.setText("自动轮播已暂停")
 
 
-class ModernTrayMenu(QMenu):
-    """Custom QMenu with true transparent rounded corners and Windows 11 DWM support."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-
-    def showEvent(self, event) -> None:
-        super().showEvent(event)
-        if os.name == "nt":
-            try:
-                import ctypes
-                from ctypes import byref, c_int, sizeof
-
-                hwnd = int(self.winId())
-                corner_pref = c_int(2)  # DWMWCP_ROUND
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                    ctypes.c_void_p(hwnd),
-                    33,  # DWMWA_WINDOW_CORNER_PREFERENCE
-                    byref(corner_pref),
-                    sizeof(corner_pref),
-                )
-                light_mode = c_int(0)
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                    ctypes.c_void_p(hwnd),
-                    20,  # DWMWA_USE_IMMERSIVE_DARK_MODE
-                    byref(light_mode),
-                    sizeof(light_mode),
-                )
-            except Exception:
-                pass
-
-
 class AppTrayIcon(QSystemTrayIcon):
     """Manages application tray icon, modern context menu, and notifications."""
 
@@ -200,41 +165,8 @@ class AppTrayIcon(QSystemTrayIcon):
         scheduler.status_changed.connect(self._on_scheduler_status_changed)
 
     def _init_menu(self) -> None:
-        self.menu = ModernTrayMenu()
+        self.menu = ModernMenu()
         self.menu.setFixedWidth(228)
-        self.menu.setStyleSheet("""
-            QMenu {
-                background-color: #FFFFFF;
-                border: 1px solid #CBD5E1;
-                border-radius: 10px;
-                padding: 4px;
-            }
-            QMenu::item {
-                background-color: transparent;
-                padding: 7px 12px 7px 32px;
-                border-radius: 6px;
-                color: #1E293B;
-                font-size: 12.5px;
-                font-weight: 500;
-                margin: 1px 2px;
-            }
-            QMenu::item:selected {
-                background-color: #F1F5F9;
-                color: #0078D4;
-                font-weight: 600;
-            }
-            QMenu::item:disabled {
-                color: #94A3B8;
-            }
-            QMenu::icon {
-                left: 10px;
-            }
-            QMenu::separator {
-                height: 1px;
-                background-color: #F1F5F9;
-                margin: 3px 6px;
-            }
-        """)
 
         # 1. Header Card
         self.header_widget = TrayHeaderWidget(self.menu)
