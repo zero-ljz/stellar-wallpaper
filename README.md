@@ -3,7 +3,7 @@
 基于 Fluent 2 视觉语言构建的高颜值、轻量级、去中心化 Windows 桌面超高清壁纸管理与自动轮播客户端。
 
 [![GitHub Repository](https://img.shields.io/badge/GitHub-stellar--wallpaper-blue?logo=github)](https://github.com/zero-ljz/stellar-wallpaper)
-[![Release](https://img.shields.io/badge/version-v1.2.1-brightgreen.svg)](https://github.com/zero-ljz/stellar-wallpaper/releases)
+[![Release](https://img.shields.io/badge/version-v1.2.2-brightgreen.svg)](https://github.com/zero-ljz/stellar-wallpaper/releases)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%206.8.3-green.svg)](https://wiki.qt.io/Qt_for_Python)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4.svg)](https://microsoft.com/windows)
@@ -50,6 +50,7 @@
    - 分类画廊网格瀑布流浏览，支持关键字搜索与分页翻页。
    - 异步多线程缩略图加载与本地磁盘缓存。
    - 悬浮快捷操作（一键设为壁纸、收藏、下载保存）。
+   - 批量勾选多张壁纸并后台下载，支持跨页选择、进度显示、取消和自动跳过已有文件。
    - 超高清大图预览弹窗与详细元数据展示（分辨率、标签、专区、拍摄信息）。
 
 7. **📁 保存壁纸一键打开所在目录**

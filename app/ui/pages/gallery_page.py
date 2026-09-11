@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -14,19 +14,21 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
+    QProgressBar,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from ...config import config
 from ...constants import CATEGORIES, CATEGORY_MAP
 from ...core.api_client import api_client
 from ...core.database import db
+from ...core.download_manager import download_wallpaper, wallpaper_download_key
 from ..components.category_tab_bar import CategoryTabBar
+from ..components.message_box import show_batch_download_result
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard, extract_item_ids
 from ..icons import create_icon
@@ -34,7 +36,7 @@ from ..icons import create_icon
 
 class FetchPageWorker(QThread):
     data_loaded = Signal(dict, int)  # data, req_id
-    error = Signal(str, int)         # error_msg, req_id
+    error = Signal(str, int)  # error_msg, req_id
 
     def __init__(
         self,
@@ -57,13 +59,17 @@ class FetchPageWorker(QThread):
     def run(self) -> None:
         try:
             if self.keyword:
-                result = api_client.search_wallpapers(self.keyword, self.start_idx, self.count)
+                result = api_client.search_wallpapers(
+                    self.keyword, self.start_idx, self.count
+                )
             elif self.category_id == "latest":
                 result = api_client.get_latest_wallpapers(self.start_idx, self.count)
             elif self.category_id == "bing":
                 result = api_client.get_bing_wallpapers(self.start_idx, self.count)
             elif self.category_id == "picsum":
-                result = api_client.get_picsum_wallpapers(self.start_idx, self.count, sort_order=self.sort_order)
+                result = api_client.get_picsum_wallpapers(
+                    self.start_idx, self.count, sort_order=self.sort_order
+                )
             else:
                 result = api_client.get_category_wallpapers(
                     self.category_id or "latest",
@@ -74,6 +80,75 @@ class FetchPageWorker(QThread):
             self.data_loaded.emit(result, self.req_id)
         except Exception as e:
             self.error.emit(str(e), self.req_id)
+
+
+class BatchDownloadWorker(QThread):
+    """Download a snapshot of selected wallpapers without blocking the UI."""
+
+    item_finished = Signal(int, int, str)  # processed, total, title
+    batch_completed = Signal(
+        int, int, int, bool
+    )  # downloaded, skipped, failed, cancelled
+
+    def __init__(
+        self,
+        items: list[dict[str, Any]],
+        save_dir: Path,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        unique_items: dict[str, dict[str, Any]] = {}
+        for item in items:
+            unique_items.setdefault(wallpaper_download_key(item), dict(item))
+        self.items = list(unique_items.values())
+        self.save_dir = save_dir
+
+    def run(self) -> None:
+        downloaded = 0
+        skipped = 0
+        failed = 0
+        processed = 0
+        cancelled = False
+
+        for item in self.items:
+            if self.isInterruptionRequested():
+                cancelled = True
+                break
+            try:
+                result = download_wallpaper(
+                    item, self.save_dir, self.isInterruptionRequested
+                )
+            except Exception:  # noqa: BLE001 - one bad item must not abort the batch
+                failed += 1
+                processed += 1
+                self.item_finished.emit(processed, len(self.items), "下载失败")
+                continue
+            if result.status == "cancelled":
+                cancelled = True
+                break
+            if result.status == "downloaded":
+                downloaded += 1
+            elif result.status == "skipped":
+                skipped += 1
+            else:
+                failed += 1
+            processed += 1
+            title = str(
+                item.get("title")
+                or item.get("wallpaper_id")
+                or item.get("id")
+                or "壁纸"
+            )
+            if len(title) > 36:
+                title = f"{title[:36]}..."
+            self.item_finished.emit(processed, len(self.items), title)
+
+        self.batch_completed.emit(
+            downloaded,
+            skipped,
+            failed,
+            cancelled,
+        )
 
 
 class GalleryPage(QWidget):
@@ -92,6 +167,10 @@ class GalleryPage(QWidget):
         self._total_pages = 1
         self._req_id = 0
         self._active_workers: set[FetchPageWorker] = set()
+        self._batch_worker: BatchDownloadWorker | None = None
+        self._batch_result: tuple[int, int, int, bool] | None = None
+        self._batch_selection_mode = False
+        self._selected_items: dict[str, dict[str, Any]] = {}
 
         self._cards: list[WallpaperCard] = []
         self._current_cols = 0
@@ -124,7 +203,9 @@ class GalleryPage(QWidget):
         info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.setSpacing(10)
 
-        initial_cat = next((c for c in CATEGORIES if c["id"] == self._current_cat_id), CATEGORIES[0])
+        initial_cat = next(
+            (c for c in CATEGORIES if c["id"] == self._current_cat_id), CATEGORIES[0]
+        )
 
         self.header_title_lbl = QLabel(initial_cat["name"], self.header_info_widget)
         font = self.header_title_lbl.font()
@@ -133,8 +214,12 @@ class GalleryPage(QWidget):
         self.header_title_lbl.setFont(font)
         info_layout.addWidget(self.header_title_lbl)
 
-        self.header_desc_lbl = QLabel(initial_cat.get("desc", ""), self.header_info_widget)
-        self.header_desc_lbl.setStyleSheet("color: #475569; font-weight: 500; font-size: 12px;")
+        self.header_desc_lbl = QLabel(
+            initial_cat.get("desc", ""), self.header_info_widget
+        )
+        self.header_desc_lbl.setStyleSheet(
+            "color: #475569; font-weight: 500; font-size: 12px;"
+        )
         info_layout.addWidget(self.header_desc_lbl)
 
         self.header_count_badge = QLabel("共 0 张", self.header_info_widget)
@@ -169,7 +254,9 @@ class GalleryPage(QWidget):
         search_tag_layout.addWidget(self.search_tag_lbl)
 
         self.back_to_cat_btn = QPushButton("返回分类", self.search_tag_widget)
-        self.back_to_cat_btn.setIcon(create_icon("arrow_left", color="#475569", size=14))
+        self.back_to_cat_btn.setIcon(
+            create_icon("arrow_left", color="#475569", size=14)
+        )
         self.back_to_cat_btn.setFixedHeight(28)
         self.back_to_cat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_to_cat_btn.setStyleSheet("""
@@ -242,7 +329,9 @@ class GalleryPage(QWidget):
         self.sort_desc_btn.setCheckable(True)
         self.sort_desc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sort_group.addButton(self.sort_desc_btn)
-        self.sort_desc_btn.toggled.connect(lambda chk: self._on_sort_toggled(chk, "desc"))
+        self.sort_desc_btn.toggled.connect(
+            lambda chk: self._on_sort_toggled(chk, "desc")
+        )
         sort_layout.addWidget(self.sort_desc_btn)
 
         self.sort_random_btn = QPushButton("随机", self.sort_container)
@@ -251,7 +340,9 @@ class GalleryPage(QWidget):
         self.sort_random_btn.setCheckable(True)
         self.sort_random_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sort_group.addButton(self.sort_random_btn)
-        self.sort_random_btn.toggled.connect(lambda chk: self._on_sort_toggled(chk, "random"))
+        self.sort_random_btn.toggled.connect(
+            lambda chk: self._on_sort_toggled(chk, "random")
+        )
         sort_layout.addWidget(self.sort_random_btn)
 
         control_bar.addWidget(self.sort_container)
@@ -280,27 +371,100 @@ class GalleryPage(QWidget):
         self.refresh_btn.clicked.connect(lambda: self.load_page(self._current_page))
         control_bar.addWidget(self.refresh_btn)
 
+        self.batch_mode_btn = QPushButton("批量下载", self)
+        self.batch_mode_btn.setIcon(create_icon("download", color="#475569", size=16))
+        self.batch_mode_btn.setFixedHeight(34)
+        self.batch_mode_btn.setEnabled(False)
+        self.batch_mode_btn.clicked.connect(self._toggle_batch_mode)
+        control_bar.addWidget(self.batch_mode_btn)
+
         layout.addLayout(control_bar)
+
+        self.batch_bar = QWidget(self)
+        self.batch_bar.setObjectName("BatchDownloadBar")
+        self.batch_bar.setStyleSheet("""
+            QWidget#BatchDownloadBar {
+                background-color: #EFF6FF;
+                border-radius: 6px;
+            }
+        """)
+        batch_layout = QHBoxLayout(self.batch_bar)
+        batch_layout.setContentsMargins(12, 6, 8, 6)
+        batch_layout.setSpacing(8)
+
+        self.batch_count_label = QLabel("已选择 0 张", self.batch_bar)
+        self.batch_count_label.setStyleSheet(
+            "color: #0F172A; font-weight: 700; background: transparent;"
+        )
+        batch_layout.addWidget(self.batch_count_label)
+
+        self.select_page_btn = QPushButton("全选本页", self.batch_bar)
+        self.select_page_btn.setIcon(create_icon("check", color="#475569", size=15))
+        self.select_page_btn.setFixedHeight(30)
+        self.select_page_btn.clicked.connect(self._toggle_select_current_page)
+        batch_layout.addWidget(self.select_page_btn)
+
+        self.clear_selection_btn = QPushButton("清空", self.batch_bar)
+        self.clear_selection_btn.setFixedHeight(30)
+        self.clear_selection_btn.clicked.connect(self._clear_batch_selection)
+        batch_layout.addWidget(self.clear_selection_btn)
+
+        batch_layout.addStretch()
+
+        self.batch_progress = QProgressBar(self.batch_bar)
+        self.batch_progress.setFixedWidth(210)
+        self.batch_progress.setFixedHeight(8)
+        self.batch_progress.setTextVisible(False)
+        self.batch_progress.hide()
+        batch_layout.addWidget(self.batch_progress)
+
+        self.cancel_download_btn = QPushButton("取消下载", self.batch_bar)
+        self.cancel_download_btn.setIcon(
+            create_icon("dismiss", color="#475569", size=15)
+        )
+        self.cancel_download_btn.setFixedHeight(30)
+        self.cancel_download_btn.clicked.connect(self._cancel_batch_download)
+        self.cancel_download_btn.hide()
+        batch_layout.addWidget(self.cancel_download_btn)
+
+        self.download_selected_btn = QPushButton("下载所选", self.batch_bar)
+        self.download_selected_btn.setIcon(
+            create_icon("download", color="#FFFFFF", size=15)
+        )
+        self.download_selected_btn.setProperty("class", "PrimaryButton")
+        self.download_selected_btn.setFixedHeight(30)
+        self.download_selected_btn.setEnabled(False)
+        self.download_selected_btn.clicked.connect(self._start_batch_download)
+        batch_layout.addWidget(self.download_selected_btn)
+
+        self.batch_bar.hide()
+        layout.addWidget(self.batch_bar)
 
         # 3. Wallpapers Responsive Grid View
         self.grid_scroll = QScrollArea(self)
         self.grid_scroll.setWidgetResizable(True)
         self.grid_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.grid_scroll.setStyleSheet("background: transparent; border: none;")
-        self.grid_scroll.viewport().setStyleSheet("background: transparent; border: none;")
+        self.grid_scroll.viewport().setStyleSheet(
+            "background: transparent; border: none;"
+        )
         self.grid_container = QWidget(self.grid_scroll)
         self.grid_container.setStyleSheet("background: transparent; border: none;")
         self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setContentsMargins(0, 4, 0, 4)
         self.grid_layout.setSpacing(16)
-        self.grid_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.grid_layout.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
+        )
         self.grid_scroll.setWidget(self.grid_container)
         layout.addWidget(self.grid_scroll, 1)
 
         # Loading / Status label
         self.status_label = QLabel("正在加载壁纸...", self)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet("color: #64748B; font-size: 14px; padding: 40px;")
+        self.status_label.setStyleSheet(
+            "color: #64748B; font-size: 14px; padding: 40px;"
+        )
         layout.addWidget(self.status_label)
         self.status_label.hide()
 
@@ -316,7 +480,9 @@ class GalleryPage(QWidget):
         page_bar.addWidget(self.prev_btn)
 
         self.page_info_label = QLabel("第 1 / 1 页 (共 0 张)", self)
-        self.page_info_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
+        self.page_info_label.setStyleSheet(
+            "color: #334155; font-weight: 600; font-size: 12px;"
+        )
         page_bar.addWidget(self.page_info_label)
 
         self.next_btn = QPushButton("下一页", self)
@@ -353,7 +519,11 @@ class GalleryPage(QWidget):
         scroll_w = self.grid_scroll.width()
         page_w = self.width() - 48
 
-        width = vp_width if (vp_width > 50 and abs(vp_width - scroll_w) <= 30) else max(scroll_w, page_w, 300)
+        width = (
+            vp_width
+            if (vp_width > 50 and abs(vp_width - scroll_w) <= 30)
+            else max(scroll_w, page_w, 300)
+        )
         card_total_width = 264 + 16  # 264px card width + 16px grid horizontal spacing
         cols = max(2, (width + 16) // card_total_width)
         return cols
@@ -375,7 +545,10 @@ class GalleryPage(QWidget):
             col = index % cols
             self.grid_layout.addWidget(card, row, col)
 
-    def _on_category_selected(self, cat_id: str, cat_name: str = "", cat_desc: str = "") -> None:
+    def _on_category_selected(
+        self, cat_id: str, cat_name: str = "", cat_desc: str = ""
+    ) -> None:
+        self._clear_batch_selection()
         self._current_cat_id = cat_id
         self._current_keyword = ""
         self.search_input.clear()
@@ -404,13 +577,14 @@ class GalleryPage(QWidget):
         kw = self.search_input.text().strip()
         if not kw:
             return
+        self._clear_batch_selection()
         self._current_keyword = kw
 
         # Update UI to search mode
         self.cat_tab_bar.clear_selection()
         self.header_info_widget.hide()
         self.sort_container.hide()
-        self.search_tag_lbl.setText(f"搜索关键词:  \"{kw}\"")
+        self.search_tag_lbl.setText(f'搜索关键词:  "{kw}"')
         self.search_tag_widget.show()
 
         self.load_page(1)
@@ -429,6 +603,7 @@ class GalleryPage(QWidget):
         req_id = self._req_id
 
         self._clear_grid()
+        self.batch_mode_btn.setEnabled(False)
         self.status_label.setText("正在努力加载壁纸...")
         self.status_label.show()
 
@@ -498,13 +673,144 @@ class GalleryPage(QWidget):
             card = WallpaperCard(item_data, self.grid_container)
             card.apply_requested.connect(self._on_card_apply)
             card.preview_requested.connect(self._on_card_preview)
+            card.selection_changed.connect(self._on_card_selection_changed)
+            card.set_selection_mode(self._batch_selection_mode)
+            card.set_selected(wallpaper_download_key(item_data) in self._selected_items)
             self._cards.append(card)
 
+        self.batch_mode_btn.setEnabled(self._batch_worker is None)
+        self._update_batch_controls()
         self._relayout_grid(force=True)
 
     def _on_page_error(self, err: str) -> None:
+        self.batch_mode_btn.setEnabled(False)
         self.status_label.setText(f"加载失败: {err}")
         self.status_label.show()
+
+    def _toggle_batch_mode(self) -> None:
+        self._set_batch_mode(not self._batch_selection_mode)
+
+    def _set_batch_mode(self, enabled: bool) -> None:
+        if self._batch_worker is not None:
+            return
+        self._batch_selection_mode = enabled
+        self.batch_bar.setVisible(enabled)
+        self.batch_mode_btn.setText("退出批量" if enabled else "批量下载")
+        self.batch_mode_btn.setIcon(
+            create_icon("dismiss" if enabled else "download", color="#475569", size=16)
+        )
+        for card in self._cards:
+            card.set_selection_mode(enabled)
+        if not enabled:
+            self._clear_batch_selection()
+        self._update_batch_controls()
+
+    def _on_card_selection_changed(self, item: dict[str, Any], selected: bool) -> None:
+        key = wallpaper_download_key(item)
+        if selected:
+            self._selected_items[key] = dict(item)
+        else:
+            self._selected_items.pop(key, None)
+        self._update_batch_controls()
+
+    def _toggle_select_current_page(self) -> None:
+        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        select = not page_keys or not all(
+            key in self._selected_items for key in page_keys
+        )
+        for card, key in zip(self._cards, page_keys, strict=True):
+            card.set_selected(select)
+            if select:
+                self._selected_items[key] = dict(card.item_data)
+            else:
+                self._selected_items.pop(key, None)
+        self._update_batch_controls()
+
+    def _clear_batch_selection(self) -> None:
+        self._selected_items.clear()
+        for card in self._cards:
+            card.set_selected(False)
+        self._update_batch_controls()
+
+    def _update_batch_controls(self) -> None:
+        count = len(self._selected_items)
+        self.batch_count_label.setText(f"已选择 {count} 张")
+        self.download_selected_btn.setText(
+            f"下载所选 ({count})" if count else "下载所选"
+        )
+        self.download_selected_btn.setEnabled(count > 0 and self._batch_worker is None)
+        self.clear_selection_btn.setEnabled(count > 0 and self._batch_worker is None)
+        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        all_page_selected = bool(page_keys) and all(
+            key in self._selected_items for key in page_keys
+        )
+        self.select_page_btn.setText("取消本页" if all_page_selected else "全选本页")
+        self.select_page_btn.setEnabled(bool(page_keys) and self._batch_worker is None)
+
+    def _start_batch_download(self) -> None:
+        if self._batch_worker is not None or not self._selected_items:
+            return
+        items = [dict(item) for item in self._selected_items.values()]
+        worker = BatchDownloadWorker(items, Path(config.download_dir), self)
+        self._batch_worker = worker
+        self._batch_result = None
+        worker.item_finished.connect(self._on_batch_item_finished)
+        worker.batch_completed.connect(self._on_batch_completed)
+        worker.finished.connect(lambda w=worker: self._on_batch_thread_finished(w))
+        worker.finished.connect(worker.deleteLater)
+        self._set_batch_busy(True, len(worker.items))
+        worker.start()
+
+    def _set_batch_busy(self, busy: bool, total: int = 0) -> None:
+        self.batch_mode_btn.setEnabled(not busy and bool(self._cards))
+        self.cat_tab_bar.setEnabled(not busy)
+        self.search_input.setEnabled(not busy)
+        self.search_btn.setEnabled(not busy)
+        self.refresh_btn.setEnabled(not busy)
+        self.prev_btn.setEnabled(not busy and self._current_page > 1)
+        self.next_btn.setEnabled(not busy and self._current_page < self._total_pages)
+        self.jump_spinbox.setEnabled(not busy)
+        self.jump_btn.setEnabled(not busy)
+        self.select_page_btn.setVisible(not busy)
+        self.clear_selection_btn.setVisible(not busy)
+        self.download_selected_btn.setVisible(not busy)
+        for card in self._cards:
+            card.selection_checkbox.setEnabled(not busy)
+
+        self.batch_progress.setVisible(busy)
+        self.cancel_download_btn.setVisible(busy)
+        self.cancel_download_btn.setEnabled(busy)
+        self.cancel_download_btn.setText("取消下载")
+        if busy:
+            self.batch_progress.setRange(0, max(1, total))
+            self.batch_progress.setValue(0)
+        self._update_batch_controls()
+
+    def _on_batch_item_finished(self, processed: int, total: int, title: str) -> None:
+        self.batch_progress.setMaximum(max(1, total))
+        self.batch_progress.setValue(processed)
+        self.batch_count_label.setText(f"正在下载 {processed} / {total}：{title}")
+
+    def _cancel_batch_download(self) -> None:
+        if self._batch_worker is None:
+            return
+        self._batch_worker.requestInterruption()
+        self.cancel_download_btn.setEnabled(False)
+        self.cancel_download_btn.setText("正在取消...")
+
+    def _on_batch_completed(
+        self, downloaded: int, skipped: int, failed: int, cancelled: bool
+    ) -> None:
+        self._batch_result = (downloaded, skipped, failed, cancelled)
+
+    def _on_batch_thread_finished(self, worker: BatchDownloadWorker) -> None:
+        if worker is not self._batch_worker:
+            return
+        result = self._batch_result or (0, 0, len(worker.items), False)
+        self._batch_worker = None
+        self._set_batch_busy(False)
+        self._set_batch_mode(False)
+        show_batch_download_result(self, Path(config.download_dir), *result)
 
     def _prev_page(self) -> None:
         if self._current_page > 1:

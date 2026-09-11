@@ -22,7 +22,9 @@ def test_category_tab_bar_initialization_and_selection():
     assert tab_bar.get_current_category_id() == "36"
 
     selected = []
-    tab_bar.category_selected.connect(lambda cid, name, desc: selected.append((cid, name, desc)))
+    tab_bar.category_selected.connect(
+        lambda cid, name, desc: selected.append((cid, name, desc))
+    )
 
     tab_bar.select_category("9")
     assert tab_bar.get_current_category_id() == "9"
@@ -64,6 +66,50 @@ def test_gallery_page_column_calculation():
     cols_1800 = page._calculate_cols()
     assert cols_1800 == 6
     assert cols_1800 > cols_1200 > cols_600
+
+
+def test_gallery_batch_selection_is_preserved_across_pages(monkeypatch):
+    _app = get_qapp()
+    monkeypatch.setattr(
+        "app.ui.components.wallpaper_card.WallpaperCard._load_thumbnail",
+        lambda _self: None,
+    )
+    page = GalleryPage(auto_load=False)
+    first_page = [
+        {"id": "1", "download_url": "https://example.com/1.jpg"},
+        {"id": "2", "download_url": "https://example.com/2.jpg"},
+    ]
+    page._on_page_loaded({"items": first_page, "total": 4})
+
+    assert page.batch_mode_btn.isEnabled()
+    page._set_batch_mode(True)
+    page._toggle_select_current_page()
+    assert len(page._selected_items) == 2
+    assert page.download_selected_btn.text() == "下载所选 (2)"
+    assert all(card.is_selected() for card in page._cards)
+
+    page._clear_grid()
+    second_page = [
+        {"id": "3", "download_url": "https://example.com/3.jpg"},
+        {"id": "4", "download_url": "https://example.com/4.jpg"},
+    ]
+    page._current_page = 2
+    page._on_page_loaded({"items": second_page, "total": 4})
+    page._cards[0].set_selected(True, emit=True)
+
+    assert len(page._selected_items) == 3
+    assert page.download_selected_btn.text() == "下载所选 (3)"
+    page._set_batch_mode(False)
+    assert not page._selected_items
+
+
+def test_gallery_empty_page_disables_batch_download(monkeypatch):
+    _app = get_qapp()
+    page = GalleryPage(auto_load=False)
+    page._on_page_loaded({"items": [], "total": 0})
+
+    assert not page.batch_mode_btn.isEnabled()
+    assert not page.download_selected_btn.isEnabled()
 
 
 def test_favorites_and_history_column_calculation():

@@ -135,28 +135,6 @@ QDialogButtonBox {{
     border: none;
 }}
 
-QDialogButtonBox QPushButton, QMessageBox QPushButton {{
-    background-color: {COLOR_ACCENT};
-    color: #FFFFFF;
-    border: 1px solid {COLOR_ACCENT};
-    border-radius: 6px;
-    padding: 6px 18px;
-    font-weight: bold;
-    font-size: 13px;
-    min-width: 75px;
-    min-height: 24px;
-}}
-
-QDialogButtonBox QPushButton:hover, QMessageBox QPushButton:hover {{
-    background-color: {COLOR_ACCENT_HOVER};
-    border-color: {COLOR_ACCENT_HOVER};
-}}
-
-QDialogButtonBox QPushButton:pressed, QMessageBox QPushButton:pressed {{
-    background-color: {COLOR_ACCENT_PRESSED};
-    border-color: {COLOR_ACCENT_PRESSED};
-}}
-
 /* All text labels and titles must have NO border */
 QLabel, QLabel:hover, QLabel:focus, QLabel:disabled {{
     background: transparent;

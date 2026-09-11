@@ -100,7 +100,9 @@ def test_initial_window_uses_compact_default_size() -> None:
 
 def test_main_window_uses_title_bar_menu_and_centered_title(monkeypatch) -> None:
     get_qapp()
-    monkeypatch.setattr("app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None)
+    monkeypatch.setattr(
+        "app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None
+    )
 
     class LightweightMainWindow(MainWindow):
         def _init_tray(self) -> None:
@@ -117,7 +119,9 @@ def test_main_window_uses_title_bar_menu_and_centered_title(monkeypatch) -> None
         "视图(&V)",
         "程序(&P)",
     ]
-    assert all(isinstance(action.menu(), ModernMenu) for action in window.menu_bar.actions())
+    assert all(
+        isinstance(action.menu(), ModernMenu) for action in window.menu_bar.actions()
+    )
     assert window.titleAlignment() == "center"
     assert window.titleBar is not None
     assert window.titleBar.titleLabel.alignment() & Qt.AlignmentFlag.AlignHCenter
@@ -228,3 +232,25 @@ def test_wallpaper_badges_use_translucent_backgrounds(monkeypatch) -> None:
 
     assert "rgba(51, 65, 85, 0.25)" in card.cat_badge.styleSheet()
     assert "rgba(56, 139, 202, 0.28)" in card.res_badge.styleSheet()
+
+
+def test_wallpaper_card_selection_mode(monkeypatch) -> None:
+    _app = get_qapp()
+    monkeypatch.setattr(WallpaperCard, "_load_thumbnail", lambda self: None)
+    card = WallpaperCard({"id": "42", "download_url": "https://example.com/42.jpg"})
+    changes = []
+    card.selection_changed.connect(
+        lambda item, selected: changes.append((item["id"], selected))
+    )
+
+    card.set_selection_mode(True)
+    assert card.selection_checkbox.isVisibleTo(card)
+    card.set_selected(True, emit=True)
+
+    assert card.is_selected()
+    assert card.selection_checkbox.isChecked()
+    assert "2px solid #0078D4" in card.styleSheet()
+    assert changes == [("42", True)]
+
+    card.set_selection_mode(False)
+    assert not card.is_selected()

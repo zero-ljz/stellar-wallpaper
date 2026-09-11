@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -26,7 +27,12 @@ from .message_box import show_info, show_save_success, show_success, show_warnin
 
 def extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
     wid = str(item_data.get("wallpaper_id") or item_data.get("id") or "")
-    url = str(item_data.get("url") or item_data.get("url_mid") or item_data.get("thumb_url") or "")
+    url = str(
+        item_data.get("url")
+        or item_data.get("url_mid")
+        or item_data.get("thumb_url")
+        or ""
+    )
     return wid, url
 
 
@@ -36,8 +42,11 @@ class WallpaperCard(QFrame):
     apply_requested = Signal(dict)
     preview_requested = Signal(dict)
     favorite_toggled = Signal(dict, bool)
+    selection_changed = Signal(dict, bool)
 
-    def __init__(self, item_data: dict[str, Any], parent: QWidget | None = None) -> None:
+    def __init__(
+        self, item_data: dict[str, Any], parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.item_data = dict(item_data)
         self.setFixedSize(264, 196)
@@ -47,6 +56,8 @@ class WallpaperCard(QFrame):
 
         self._pixmap: QPixmap | None = None
         self._is_hovered = False
+        self._selection_mode = False
+        self._is_selected = False
         wid, url = extract_item_ids(self.item_data)
         self._is_favorited = db.is_favorite(wid, url)
 
@@ -54,16 +65,7 @@ class WallpaperCard(QFrame):
         self._load_thumbnail()
 
     def _init_ui(self) -> None:
-        self.setStyleSheet("""
-            QFrame#WallpaperCard {
-                background-color: #FFFFFF;
-                border: 1px solid #E2E8F0;
-                border-radius: 10px;
-            }
-            QFrame#WallpaperCard:hover {
-                border-color: #0078D4;
-            }
-        """)
+        self._update_selection_style()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -79,6 +81,14 @@ class WallpaperCard(QFrame):
         # Top tag row inside image
         top_row = QHBoxLayout()
         top_row.setSpacing(6)
+
+        self.selection_checkbox = QCheckBox(self.img_container)
+        self.selection_checkbox.setFixedSize(24, 24)
+        self.selection_checkbox.setToolTip("选择此壁纸")
+        self.selection_checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.selection_checkbox.toggled.connect(self._on_selection_toggled)
+        self.selection_checkbox.hide()
+        top_row.addWidget(self.selection_checkbox)
 
         cat_name = self.item_data.get("category_name") or "壁纸"
         self.cat_badge = QLabel(cat_name, self.img_container)
@@ -142,7 +152,9 @@ class WallpaperCard(QFrame):
             QPushButton:hover { background-color: #1084D9; }
             QPushButton:pressed { background-color: #0067B8; }
         """)
-        self.apply_btn.clicked.connect(lambda: self.apply_requested.emit(self.item_data))
+        self.apply_btn.clicked.connect(
+            lambda: self.apply_requested.emit(self.item_data)
+        )
         action_layout.addWidget(self.apply_btn, 1)
 
         self.preview_btn = QPushButton(self.action_row_widget)
@@ -165,7 +177,9 @@ class WallpaperCard(QFrame):
                 background-color: #F1F5F9;
             }
         """)
-        self.preview_btn.clicked.connect(lambda: self.preview_requested.emit(self.item_data))
+        self.preview_btn.clicked.connect(
+            lambda: self.preview_requested.emit(self.item_data)
+        )
         action_layout.addWidget(self.preview_btn)
 
         self.download_btn = QPushButton(self.action_row_widget)
@@ -202,18 +216,67 @@ class WallpaperCard(QFrame):
         footer_layout.setContentsMargins(10, 6, 10, 6)
         footer_layout.setSpacing(2)
 
-        raw_title = self.item_data.get("title") or self.item_data.get("tag") or "高清壁纸"
-        clean_title = raw_title.replace("_360Wallpaper_", "").replace("_category_", "").replace("_", " ").strip()
+        raw_title = (
+            self.item_data.get("title") or self.item_data.get("tag") or "高清壁纸"
+        )
+        clean_title = (
+            raw_title.replace("_360Wallpaper_", "")
+            .replace("_category_", "")
+            .replace("_", " ")
+            .strip()
+        )
         self.title_label = QLabel(clean_title or "高清壁纸", footer)
-        self.title_label.setStyleSheet("color: #0B0F19; font-weight: 700; font-size: 12px; border: none; background: transparent;")
+        self.title_label.setStyleSheet(
+            "color: #0B0F19; font-weight: 700; font-size: 12px; border: none; background: transparent;"
+        )
         footer_layout.addWidget(self.title_label)
 
-        raw_sub = self.item_data.get("applied_at") or self.item_data.get("resolution") or ""
+        raw_sub = (
+            self.item_data.get("applied_at") or self.item_data.get("resolution") or ""
+        )
         self.sub_label = QLabel(raw_sub, footer)
-        self.sub_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 11px; border: none; background: transparent;")
+        self.sub_label.setStyleSheet(
+            "color: #334155; font-weight: 600; font-size: 11px; border: none; background: transparent;"
+        )
         footer_layout.addWidget(self.sub_label)
 
         layout.addWidget(footer)
+
+    def _update_selection_style(self) -> None:
+        border = "2px solid #0078D4" if self._is_selected else "1px solid #E2E8F0"
+        self.setStyleSheet(f"""
+            QFrame#WallpaperCard {{
+                background-color: #FFFFFF;
+                border: {border};
+                border-radius: 10px;
+            }}
+            QFrame#WallpaperCard:hover {{
+                border-color: #0078D4;
+            }}
+        """)
+
+    def set_selection_mode(self, enabled: bool) -> None:
+        self._selection_mode = enabled
+        self.selection_checkbox.setVisible(enabled)
+        if not enabled:
+            self.set_selected(False)
+        self.action_row_widget.hide()
+
+    def set_selected(self, selected: bool, *, emit: bool = False) -> None:
+        changed = self._is_selected != selected
+        self._is_selected = selected
+        self.selection_checkbox.blockSignals(True)
+        self.selection_checkbox.setChecked(selected)
+        self.selection_checkbox.blockSignals(False)
+        self._update_selection_style()
+        if emit and changed:
+            self.selection_changed.emit(self.item_data, selected)
+
+    def is_selected(self) -> bool:
+        return self._is_selected
+
+    def _on_selection_toggled(self, checked: bool) -> None:
+        self.set_selected(checked, emit=True)
 
     def _update_fav_style(self) -> None:
         if self._is_favorited:
@@ -309,16 +372,24 @@ class WallpaperCard(QFrame):
             )
             x = (scaled.width() - img_rect.width()) // 2
             y = (scaled.height() - img_rect.height()) // 2
-            painter.drawPixmap(img_rect, scaled, QRect(x, y, img_rect.width(), img_rect.height()))
+            painter.drawPixmap(
+                img_rect, scaled, QRect(x, y, img_rect.width(), img_rect.height())
+            )
         else:
             painter.fillRect(img_rect, QColor("#F1F5F9"))
             painter.setPen(QColor("#94A3B8"))
             painter.drawText(img_rect, Qt.AlignmentFlag.AlignCenter, "加载中...")
 
+        if self._is_selected:
+            painter.setPen(QPen(QColor("#0078D4"), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(1, 1, self.width() - 2, self.height() - 2, 9, 9)
+
     def enterEvent(self, event) -> None:  # noqa: N802
         super().enterEvent(event)
         self._is_hovered = True
-        self.action_row_widget.show()
+        if not self._selection_mode:
+            self.action_row_widget.show()
 
     def leaveEvent(self, event) -> None:  # noqa: N802
         super().leaveEvent(event)
@@ -327,5 +398,8 @@ class WallpaperCard(QFrame):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
-            self.preview_requested.emit(self.item_data)
+            if self._selection_mode:
+                self.set_selected(not self._is_selected, emit=True)
+            else:
+                self.preview_requested.emit(self.item_data)
         super().mousePressEvent(event)

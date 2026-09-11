@@ -7,7 +7,7 @@ from app.config import ConfigManager
 
 
 def test_categories_count():
-    assert APP_VERSION == "1.2.1"
+    assert APP_VERSION == "1.2.2"
     assert len(CATEGORIES) == 18
     assert "bing" in CATEGORY_MAP
     assert CATEGORY_MAP["bing"] == "必应壁纸"
