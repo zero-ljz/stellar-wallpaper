@@ -405,14 +405,14 @@ wheels = [
 
 [[package]]
 name = "pyside6-modern-widgets"
-version = "0.5.3"
+version = "0.5.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyside6" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/a6/5b7736e22515da32964f5b9c85191bea65891e47ed55a4da5dd00954ce5d/pyside6_modern_widgets-0.5.3.tar.gz", hash = "sha256:ef740ea3344b503429734094c6152a693d9d0b6a882ada59731efddd865cda2c", size = 80231, upload-time = "2026-09-11T08:41:07.018Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/2b/816935b446f8d38c1c69d191b1560221cbe05ed424b5762d426ac00603df/pyside6_modern_widgets-0.5.5.tar.gz", hash = "sha256:8907862e184ce1d151f85c7fdfca66ecd2b22eec209574aa6f2ddf18ad4f205f", size = 108402, upload-time = "2026-09-13T14:24:01.337Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/a6/9a7ca8e2b183f1b18e40a66deed4d81b990b5c308a06574278d9f28e9e17/pyside6_modern_widgets-0.5.3-py3-none-any.whl", hash = "sha256:f81f8510f0a29c47260b866f2b817dc8071fa3508d400cfd9ac979b1fee1e45e", size = 74456, upload-time = "2026-09-11T08:41:05.354Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/9c/02d5733198c0df7f621e4aacfbb92ced573c5c81c9098202a201c5006e86/pyside6_modern_widgets-0.5.5-py3-none-any.whl", hash = "sha256:0fb112c219359cc92bb5b2fe4d2c5ed23629b75202258697e92d3e616d28e8e7", size = 89589, upload-time = "2026-09-13T14:23:59.879Z" },
 ]
 
 [[package]]
@@ -505,7 +505,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pyside6", specifier = "==6.8.3" },
-    { name = "pyside6-modern-widgets", specifier = "==0.5.3" },
+    { name = "pyside6-modern-widgets", specifier = "==0.5.5" },
 ]
 
 [package.metadata.requires-dev]

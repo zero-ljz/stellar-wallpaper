@@ -55,9 +55,9 @@ class MainWindow(ModernWindow):
     def showMaximized(self) -> None:
         """Preserve the normal geometry when maximizing on Windows.
 
-        pyside6-modern-widgets 0.5.3 delegates this transition to Qt. A
-        maximized window restored from the tray can consequently lose its
-        previous normal geometry, so retain it before invoking Win32.
+        The component library delegates this transition to Qt. A maximized
+        window restored from the tray can consequently lose its previous
+        normal geometry, so retain it before invoking Win32.
         """
         if sys.platform != "win32":
             super().showMaximized()

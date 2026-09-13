@@ -1,7 +1,10 @@
 import sys
 from pathlib import Path
+
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
+from pyside6_modern_widgets import ThemeMode, theme_manager
+
 
 # Directory for UI SVG icons
 def _get_icons_dir() -> str:
@@ -77,6 +80,9 @@ def force_window_light_mode(hwnd: int) -> None:
 
 def apply_fusion_light_theme(app: QApplication) -> None:
     """Applies Fusion style with high-DPI crystal-clear font rendering and tuned Windows 11 Light Palette."""
+    # Modern widgets default to following the operating-system color scheme.
+    # Pin their shared manager before creating any component-library widgets.
+    theme_manager().setMode(ThemeMode.LIGHT)
     app.setStyle("Fusion")
 
     # High-DPI screen (3.2K / 4K with 150%/200% scaling) optimal font setup:

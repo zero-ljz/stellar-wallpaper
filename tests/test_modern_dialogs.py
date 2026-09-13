@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from pyside6_modern_widgets import ModernDialog, ModernMessageBox
 
 from app.ui.components import message_box
@@ -42,7 +42,7 @@ def test_message_box_uses_component_buttons_and_chrome(tmp_path: Path) -> None:
     )
 
     assert isinstance(box, ModernMessageBox)
-    assert isinstance(box, ModernDialog)
+    assert isinstance(box, QMessageBox)
     assert box.windowTitle() == "确认操作"
     assert box._title_bar.titleLabel.text() == "确认操作"
     assert box.text() == "确定继续吗？"
@@ -57,10 +57,8 @@ def test_question_result_uses_clicked_custom_button(monkeypatch) -> None:
     get_qapp()
 
     def click_button_named(box: ModernMessageBox, text: str) -> int:
-        box._clicked_button = next(
-            button for button in box.buttons() if button.text() == text
-        )
-        return 0
+        next(button for button in box.buttons() if button.text() == text).click()
+        return box.result()
 
     monkeypatch.setattr(
         ModernMessageBox,
@@ -83,10 +81,10 @@ def test_save_message_open_folder_action(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(message_box, "open_directory", opened.append)
 
     def click_open_folder(box: ModernMessageBox) -> int:
-        box._clicked_button = next(
+        next(
             button for button in box.buttons() if button.text() == "打开所在目录"
-        )
-        return 0
+        ).click()
+        return box.result()
 
     monkeypatch.setattr(ModernMessageBox, "exec", click_open_folder)
     target = tmp_path / "wallpaper.jpg"
