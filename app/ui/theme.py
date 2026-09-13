@@ -121,19 +121,16 @@ QWidget {{
     font-family: "{font_family}", "Segoe UI", "Microsoft YaHei UI", sans-serif;
     font-size: 13px;
     font-weight: normal;
-    color: {COLOR_TEXT_MAIN};
 }}
 
 /* All Dialogs and Message Boxes - Pure Fusion Light Mode */
 QDialog, QMessageBox, QFileDialog, QInputDialog {{
     background-color: #FFFFFF;
-    color: {COLOR_TEXT_MAIN};
 }}
 
 QDialog QLabel, QMessageBox QLabel, QFileDialog QLabel {{
     background: transparent;
     border: none;
-    color: {COLOR_TEXT_MAIN};
 }}
 
 QDialogButtonBox {{
@@ -146,7 +143,6 @@ QLabel, QLabel:hover, QLabel:focus, QLabel:disabled {{
     background: transparent;
     border: none;
     outline: none;
-    color: {COLOR_TEXT_MAIN};
 }}
 
 /* Smooth ScrollBar Styling */
