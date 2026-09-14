@@ -8,8 +8,8 @@ from app.core.download_manager import (
     build_download_target,
     download_wallpaper,
 )
-from app.ui.pages import gallery_page
-from app.ui.pages.gallery_page import BatchDownloadWorker
+from app.ui import batch_download
+from app.ui.batch_download import BatchDownloadWorker
 
 
 def test_build_download_target_is_stable_and_windows_safe(tmp_path: Path) -> None:
@@ -96,7 +96,7 @@ def test_batch_worker_deduplicates_and_continues_after_failure(
             raise outcome
         return outcome
 
-    monkeypatch.setattr(gallery_page, "download_wallpaper", fake_download)
+    monkeypatch.setattr(batch_download, "download_wallpaper", fake_download)
     worker = BatchDownloadWorker(items, tmp_path)
     completed = []
     progress = []

@@ -1,11 +1,13 @@
 """Tests for CategoryTabBar, GalleryPage, FavoritesPage, and HistoryPage responsiveness."""
 
 import sys
+
 from PySide6.QtWidgets import QApplication
+
 from app.constants import CATEGORIES
 from app.ui.components.category_tab_bar import CategoryTabBar
-from app.ui.pages.gallery_page import GalleryPage
 from app.ui.pages.favorites_page import FavoritesPage
+from app.ui.pages.gallery_page import GalleryPage
 from app.ui.pages.history_page import HistoryPage
 
 
@@ -110,6 +112,50 @@ def test_gallery_empty_page_disables_batch_download(monkeypatch):
 
     assert not page.batch_mode_btn.isEnabled()
     assert not page.download_selected_btn.isEnabled()
+
+
+def test_favorites_batch_selection_supports_pages_and_select_all(monkeypatch):
+    _app = get_qapp()
+    monkeypatch.setattr(
+        "app.ui.components.wallpaper_card.WallpaperCard._load_thumbnail",
+        lambda _self: None,
+    )
+    favorites = [
+        {"id": str(index), "download_url": f"https://example.com/{index}.jpg"}
+        for index in range(1, 5)
+    ]
+    monkeypatch.setattr(
+        "app.ui.pages.favorites_page.db.count_favorites", lambda: len(favorites)
+    )
+
+    def get_favorites(limit=None, offset=0):
+        if limit is None:
+            return list(favorites)
+        return favorites[offset : offset + limit]
+
+    monkeypatch.setattr("app.ui.pages.favorites_page.db.get_favorites", get_favorites)
+
+    page = FavoritesPage()
+    page._page_size = 2
+    page.load_page(1)
+    page._set_batch_mode(True)
+    page._toggle_select_current_page()
+
+    assert len(page._selected_items) == 2
+    assert page.download_selected_btn.text() == "下载所选 (2)"
+
+    page.load_page(2)
+    page._cards[0].set_selected(True, emit=True)
+    assert len(page._selected_items) == 3
+
+    page._toggle_select_all()
+    assert len(page._selected_items) == 4
+    assert page.select_all_btn.text() == "取消全选"
+    assert all(card.is_selected() for card in page._cards)
+
+    page._toggle_select_all()
+    assert not page._selected_items
+    assert page.select_all_btn.text() == "全选全部收藏"
 
 
 def test_favorites_and_history_column_calculation():
