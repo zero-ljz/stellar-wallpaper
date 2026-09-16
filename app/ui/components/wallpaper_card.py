@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QFrame,
     QHBoxLayout,
@@ -58,6 +59,10 @@ class WallpaperCard(QFrame):
         self._is_hovered = False
         self._selection_mode = False
         self._is_selected = False
+        self._hide_actions_timer = QTimer(self)
+        self._hide_actions_timer.setSingleShot(True)
+        self._hide_actions_timer.setInterval(120)
+        self._hide_actions_timer.timeout.connect(self._hide_actions_if_idle)
         wid, url = extract_item_ids(self.item_data)
         self._is_favorited = db.is_favorite(wid, url)
 
@@ -132,6 +137,10 @@ class WallpaperCard(QFrame):
 
         # Bottom action overlay row (appears on hover)
         self.action_row_widget = QWidget(self.img_container)
+        # Keep the button geometry stable when hover reveals the actions.
+        action_size_policy = self.action_row_widget.sizePolicy()
+        action_size_policy.setRetainSizeWhenHidden(True)
+        self.action_row_widget.setSizePolicy(action_size_policy)
         action_layout = QHBoxLayout(self.action_row_widget)
         action_layout.setContentsMargins(0, 0, 0, 0)
         action_layout.setSpacing(6)
@@ -257,10 +266,11 @@ class WallpaperCard(QFrame):
 
     def set_selection_mode(self, enabled: bool) -> None:
         self._selection_mode = enabled
+        self._hide_actions_timer.stop()
         self.selection_checkbox.setVisible(enabled)
         if not enabled:
             self.set_selected(False)
-        self.action_row_widget.hide()
+        self.action_row_widget.setVisible(self._is_hovered and not enabled)
 
     def set_selected(self, selected: bool, *, emit: bool = False) -> None:
         changed = self._is_selected != selected
@@ -388,12 +398,23 @@ class WallpaperCard(QFrame):
     def enterEvent(self, event) -> None:  # noqa: N802
         super().enterEvent(event)
         self._is_hovered = True
+        self._hide_actions_timer.stop()
         if not self._selection_mode:
             self.action_row_widget.show()
 
     def leaveEvent(self, event) -> None:  # noqa: N802
         super().leaveEvent(event)
         self._is_hovered = False
+        self._hide_actions_timer.start()
+
+    def _hide_actions_if_idle(self) -> None:
+        if self._is_hovered:
+            return
+        # Hiding a pressed QPushButton cancels its click. Allow the mouse
+        # gesture to finish, including a brief leave/re-enter of the card.
+        if QApplication.mouseButtons() != Qt.MouseButton.NoButton:
+            self._hide_actions_timer.start()
+            return
         self.action_row_widget.hide()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
