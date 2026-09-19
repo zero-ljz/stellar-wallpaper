@@ -7,7 +7,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QWidget
 from pyside6_modern_widgets import ModernMenuBar, ModernWindow, ThemeMode, theme_manager
 
-from app.ui.theme import apply_fusion_light_theme
+from app.ui.theme import apply_fusion_light_theme, load_application_fonts
 
 
 def get_qapp() -> QApplication:
@@ -15,6 +15,15 @@ def get_qapp() -> QApplication:
     if isinstance(app, QApplication):
         return app
     return QApplication(sys.argv)
+
+
+def test_application_font_loads_lxgw_wenkai_lite() -> None:
+    app = get_qapp()
+    family = load_application_fonts()
+    assert family == "LXGW WenKai Lite"
+
+    apply_fusion_light_theme(app)
+    assert app.font().family() == "LXGW WenKai Lite"
 
 
 def test_application_theme_is_pinned_to_light_mode() -> None:

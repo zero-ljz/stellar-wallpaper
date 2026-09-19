@@ -322,7 +322,7 @@ class SettingsPage(QWidget):
             "• 开源主页: <a href=\"https://github.com/zero-ljz/stellar-wallpaper\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">https://github.com/zero-ljz/stellar-wallpaper</a><br>"
             "• 操作系统: 兼容 Windows 10 & 11 (64-bit)<br>"
             "• 渲染引擎: 现代轻量化 Fluent 2 Light Engine<br>"
-            "• 专属字体: MiSans (小米高品质清晰字库)<br>"
+            "• 专属字体: 霞鹜文楷 Lite 精简版常规体 (LXGW WenKai Lite Regular)<br>"
             "• 壁纸画廊: 18 大精选主题与图源 (含 4K 专区、必应历史大图库、Picsum 摄影图库)"
         )
         ab_desc = QLabel(info_text, about_card)

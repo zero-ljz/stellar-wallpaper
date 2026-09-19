@@ -23,7 +23,7 @@
 
 1. **🎨 现代 Windows 11 Fluent 2 视觉体验**
    - 无边框圆角窗体、自定义沉浸式标题栏（置顶、最小化、最大化、关闭、拖拽支持）。
-   - 采用 Windows 11 Fluent Light 清爽明亮配色与 MiSans 清晰高品质字库。
+   - 采用 Windows 11 Fluent Light 清爽明亮配色与 霞鹜文楷 Lite 精简版常规体（LXGW WenKai Lite Regular）高品质字库。
    - 可折叠侧边导航栏（`NavigationView`）。
 
 2. **🗂️ 18 大精选主题与多元图源全量支持**

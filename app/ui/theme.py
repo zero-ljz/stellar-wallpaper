@@ -20,14 +20,14 @@ ICONS_DIR = _get_icons_dir()
 
 def _get_font_file_path() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        font_path = Path(sys._MEIPASS) / "app" / "resources" / "fonts" / "MiSans-Regular.ttf"
+        font_path = Path(sys._MEIPASS) / "app" / "resources" / "fonts" / "LXGWWenKaiLite-Regular.ttf"
         if font_path.exists():
             return font_path
-    return Path(__file__).resolve().parent.parent / "resources" / "fonts" / "MiSans-Regular.ttf"
+    return Path(__file__).resolve().parent.parent / "resources" / "fonts" / "LXGWWenKaiLite-Regular.ttf"
 
 
 def load_application_fonts() -> str:
-    """Loads MiSans-Regular.ttf into Qt font database and returns registered family name."""
+    """Loads LXGWWenKaiLite-Regular.ttf into Qt font database and returns registered family name."""
     font_path = _get_font_file_path()
     if font_path.exists():
         font_id = QFontDatabase.addApplicationFont(str(font_path))
@@ -35,7 +35,7 @@ def load_application_fonts() -> str:
             families = QFontDatabase.applicationFontFamilies(font_id)
             if families:
                 return families[0]
-    return "MiSans"
+    return "LXGW WenKai Lite"
 
 
 # Windows 11 Fluent Light Palette with Enhanced Text Contrast
@@ -114,7 +114,7 @@ def apply_fusion_light_theme(app: QApplication) -> None:
     app.setStyleSheet(get_global_stylesheet(font_family))
 
 
-def get_global_stylesheet(font_family: str = "MiSans") -> str:
+def get_global_stylesheet(font_family: str = "LXGW WenKai Lite") -> str:
     return f"""
 /* Global Typography and Base */
 QWidget {{
