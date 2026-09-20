@@ -20,6 +20,9 @@ def get_qapp():
 
 def test_category_tab_bar_initialization_and_selection():
     _app = get_qapp()
+    default_tab_bar = CategoryTabBar()
+    assert default_tab_bar.get_current_category_id() == "bing"
+
     tab_bar = CategoryTabBar(categories=CATEGORIES, default_cat_id="36")
     assert tab_bar.get_current_category_id() == "36"
 
@@ -54,6 +57,8 @@ def test_category_tab_bar_initialization_and_selection():
 def test_gallery_page_column_calculation():
     _app = get_qapp()
     page = GalleryPage(auto_load=False)
+    assert page._current_cat_id == "bing"
+    assert page.cat_tab_bar.get_current_category_id() == "bing"
 
     # Test column calculations at different viewport widths
     page.grid_scroll.resize(600, 600)

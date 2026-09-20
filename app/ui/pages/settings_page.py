@@ -114,7 +114,7 @@ class SettingRowCard(QFrame):
         t_lbl = QLabel(title, self)
         font = t_lbl.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(10)
         t_lbl.setFont(font)
         t_lbl.setStyleSheet("color: #0F172A; border: none; background: transparent;")
         txt_box.addWidget(t_lbl)
@@ -172,7 +172,7 @@ class SettingsPage(QWidget):
         sc_title = QLabel("Windows 桌面壁纸呈现样式", style_card)
         font = sc_title.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         sc_title.setFont(font)
         sc_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         sc_layout.addWidget(sc_title)
@@ -208,7 +208,7 @@ class SettingsPage(QWidget):
         dl_title = QLabel("壁纸下载与保存目录", dl_card)
         font = dl_title.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         dl_title.setFont(font)
         dl_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         dl_layout.addWidget(dl_title)
@@ -245,7 +245,7 @@ class SettingsPage(QWidget):
         cc_title = QLabel("本地图片缓存管理", cache_card)
         font = cc_title.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         cc_title.setFont(font)
         cc_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         cc_layout.addWidget(cc_title)
@@ -273,7 +273,7 @@ class SettingsPage(QWidget):
         sys_hdr = QLabel("Windows 系统集成与选项", container)
         font = sys_hdr.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         sys_hdr.setFont(font)
         sys_hdr.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         sys_vbox.addWidget(sys_hdr)
@@ -312,7 +312,7 @@ class SettingsPage(QWidget):
         ab_title = QLabel(f"关于 {APP_NAME} v{APP_VERSION}", about_card)
         font = ab_title.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         ab_title.setFont(font)
         ab_title.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         ab_layout.addWidget(ab_title)
@@ -320,9 +320,8 @@ class SettingsPage(QWidget):
         info_text = (
             f"• 软件名称: 星澜壁纸 (Stellar Wallpaper) v{APP_VERSION}<br>"
             "• 开源主页: <a href=\"https://github.com/zero-ljz/stellar-wallpaper\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">https://github.com/zero-ljz/stellar-wallpaper</a><br>"
-            "• 操作系统: 兼容 Windows 10 & 11 (64-bit)<br>"
-            "• 渲染引擎: 现代轻量化 Fluent 2 Light Engine<br>"
-            "• 专属字体: 霞鹜文楷 Lite 精简版常规体 (LXGW WenKai Lite Regular)<br>"
+            "• 界面组件库: <a href=\"https://pypi.org/project/pyside6-modern-widgets\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">pyside6-modern-widgets</a><br>"
+            "• 界面字体: 霞鹜文楷 Lite 精简版常规体 (LXGW WenKai Lite Regular)<br>"
             "• 壁纸画廊: 18 大精选主题与图源 (含 4K 专区、必应历史大图库、Picsum 摄影图库)"
         )
         ab_desc = QLabel(info_text, about_card)

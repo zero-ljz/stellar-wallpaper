@@ -145,7 +145,7 @@ class CategoryTabBar(QFrame):
     def __init__(
         self,
         categories: list[dict[str, str]] | None = None,
-        default_cat_id: str = "latest",
+        default_cat_id: str = "bing",
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)

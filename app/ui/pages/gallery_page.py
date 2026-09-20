@@ -73,7 +73,7 @@ class FetchPageWorker(QThread):
                 )
             else:
                 result = api_client.get_category_wallpapers(
-                    self.category_id or "latest",
+                    self.category_id or "bing",
                     self.start_idx,
                     self.count,
                     sort_order=self.sort_order,
@@ -90,7 +90,7 @@ class GalleryPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None, auto_load: bool = True) -> None:
         super().__init__(parent)
-        self._current_cat_id = "latest"  # default 最新壁纸
+        self._current_cat_id = "bing"  # default 必应壁纸
         self._current_keyword = ""
         self._picsum_sort_order = "asc"  # default 正序 (asc / desc / random)
         self._page_size = 24
@@ -141,7 +141,7 @@ class GalleryPage(QWidget):
 
         self.header_title_lbl = QLabel(initial_cat["name"], self.header_info_widget)
         font = self.header_title_lbl.font()
-        font.setPointSize(14)
+        font.setPointSizeF(12)
         font.setBold(True)
         self.header_title_lbl.setFont(font)
         info_layout.addWidget(self.header_title_lbl)
@@ -432,7 +432,7 @@ class GalleryPage(QWidget):
         self.jump_spinbox.setMinimum(1)
         self.jump_spinbox.setMaximum(1)
         self.jump_spinbox.setValue(1)
-        self.jump_spinbox.setFixedWidth(72)
+        self.jump_spinbox.setFixedWidth(90)
         self.jump_spinbox.setFixedHeight(34)
         page_bar.addWidget(self.jump_spinbox)
 

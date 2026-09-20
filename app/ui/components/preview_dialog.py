@@ -111,7 +111,7 @@ class PreviewDialog(ModernDialog):
         title_label = QLabel(clean_title or "壁纸详情", sidebar)
         font = title_label.font()
         font.setBold(True)
-        font.setPointSize(13)
+        font.setPointSizeF(11)
         title_label.setFont(font)
         title_label.setWordWrap(True)
         title_label.setStyleSheet(

@@ -5,7 +5,7 @@ from pathlib import Path
 
 APP_NAME = "星澜壁纸"
 APP_ID = "com.stellar.wallpaper"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 
 # Application data directories
 DEFAULT_APP_DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "StellarWallpaper"
@@ -19,8 +19,8 @@ DEFAULT_DOWNLOAD_DIR = Path.home() / "Pictures" / "Wallpapers"
 
 # 18 Curated Wallpaper Categories & Sources (including Latest, Bing, Picsum)
 CATEGORIES = [
-    {"id": "latest", "name": "最新壁纸", "desc": "全网最新上传精选壁纸"},
     {"id": "bing", "name": "必应壁纸", "desc": "微软 Bing 每日与历年历史精选大图库"},
+    {"id": "latest", "name": "最新壁纸", "desc": "全网最新上传精选壁纸"},
     {"id": "picsum", "name": "Picsum 图库", "desc": "Lorem Picsum 随机艺术摄影大片"},
     {"id": "36", "name": "4K专区", "desc": "3840×2160 超高清壁纸"},
     {"id": "9", "name": "风景大片", "desc": "壮美自然、山川湖海"},

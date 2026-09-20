@@ -110,7 +110,7 @@ def apply_fusion_light_theme(app: QApplication) -> None:
     # Apply global font LAST to give it authoritative precedence across all widgets
     # including ModernMenu, ModernMenuBar, dialogs, and popups.
     app_font = QFont(font_family)
-    app_font.setPointSize(10)
+    app_font.setPointSizeF(9.5)
     app_font.setWeight(QFont.Weight.Normal)
     app_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
     app_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias | QFont.StyleStrategy.PreferQuality)
