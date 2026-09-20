@@ -167,12 +167,24 @@ class WallpaperScheduler(QObject):
         self.status_changed.emit(True)
         self.countdown_tick.emit(self._remaining_seconds, self._total_seconds)
 
-    def stop(self) -> None:
+    def stop(self, persist: bool = True) -> None:
         """Stops the auto rotation timer."""
         self._is_running = False
-        config.auto_switch_enabled = False
+        if persist:
+            config.auto_switch_enabled = False
         self._timer.stop()
         self.status_changed.emit(False)
+
+    def shutdown(self) -> None:
+        """Cleanly shutdown the scheduler on application exit without overwriting user config."""
+        self._is_running = False
+        if self._timer.isActive():
+            self._timer.stop()
+        if self._current_worker and self._current_worker.isRunning():
+            self._current_worker.cancel()
+        for worker in list(self._retiring_workers):
+            if worker.isRunning():
+                worker.cancel()
 
     def reset_timer(self) -> None:
         """Resets countdown to full interval."""

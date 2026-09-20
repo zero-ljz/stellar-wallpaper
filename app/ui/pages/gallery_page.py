@@ -87,6 +87,8 @@ class GalleryPage(QWidget):
     """Browse wallpapers by official categories or keyword search with modern responsive layout."""
 
     apply_wallpaper_requested = Signal(dict)
+    search_applied = Signal(str)
+    search_cleared = Signal()
 
     def __init__(self, parent: QWidget | None = None, auto_load: bool = True) -> None:
         super().__init__(parent)
@@ -484,6 +486,7 @@ class GalleryPage(QWidget):
         self._current_cat_id = cat_id
         self._current_keyword = ""
         self.search_input.clear()
+        self.search_cleared.emit()
 
         # Update header info
         name = cat_name or CATEGORY_MAP.get(cat_id, "壁纸")
@@ -505,12 +508,16 @@ class GalleryPage(QWidget):
             self._picsum_sort_order = order
             self.load_page(1)
 
-    def _on_search(self) -> None:
-        kw = self.search_input.text().strip()
+    def search_keyword(self, kw: str) -> None:
+        """Search wallpapers globally by keyword."""
+        kw = kw.strip()
         if not kw:
+            self.reset_search()
             return
         self._clear_batch_selection()
         self._current_keyword = kw
+        if self.search_input.text().strip() != kw:
+            self.search_input.setText(kw)
 
         # Update UI to search mode
         self.cat_tab_bar.clear_selection()
@@ -519,7 +526,18 @@ class GalleryPage(QWidget):
         self.search_tag_lbl.setText(f'搜索关键词:  "{kw}"')
         self.search_tag_widget.show()
 
+        self.search_applied.emit(kw)
         self.load_page(1)
+
+    def reset_search(self) -> None:
+        """Reset search and restore active category view."""
+        self._on_reset_search()
+
+    def _on_search(self) -> None:
+        kw = self.search_input.text().strip()
+        if not kw:
+            return
+        self.search_keyword(kw)
 
     def _on_reset_search(self) -> None:
         self.search_input.clear()
@@ -527,6 +545,7 @@ class GalleryPage(QWidget):
         if self._current_cat_id == "picsum":
             self.sort_container.show()
         self.cat_tab_bar.select_category(self._current_cat_id)
+        self.search_cleared.emit()
 
     def load_page(self, page_num: int) -> None:
         self._current_page = max(1, page_num)

@@ -8,9 +8,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QRect
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence
-from PySide6.QtWidgets import QApplication, QLayout, QWidget
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import QApplication, QLayout, QPushButton, QWidget
 from pyside6_modern_widgets import (
     ModernMenuBar,
     ModernWindow,
@@ -22,6 +22,7 @@ from ..config import config
 from ..constants import APP_NAME, APP_VERSION
 from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
+from .components.title_search_box import TitleBarSearchBox
 from .components.tray_icon import AppTrayIcon, create_default_tray_icon
 from .icons import create_icon
 from .pages.favorites_page import FavoritesPage
@@ -135,6 +136,7 @@ class MainWindow(ModernWindow):
         )
 
         self._init_menu_bar()
+        self._init_title_bar_controls()
 
         # Collapse sidebar by default on startup
         if hasattr(self.nav_view, "sidebar"):
@@ -210,6 +212,77 @@ class MainWindow(ModernWindow):
         if self.titleBar is not None:
             self.titleBar.addCustomWidget(self.menu_bar, align="left")
 
+    def _init_title_bar_controls(self) -> None:
+        # Quick wallpaper actions in title bar
+        self.title_next_btn = QPushButton(self)
+        self.title_next_btn.setObjectName("TitleBarNextBtn")
+        self.title_next_btn.setIcon(create_icon("shuffle", "#475569", size=15))
+        self.title_next_btn.setToolTip("切换下一张壁纸 (随机抽取)")
+        self.title_next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_next_btn.clicked.connect(self._trigger_next_wallpaper)
+
+        self.title_auto_rotate_btn = QPushButton(self)
+        self.title_auto_rotate_btn.setObjectName("TitleBarAutoRotateBtn")
+        self.title_auto_rotate_btn.setCheckable(True)
+        self.title_auto_rotate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sync_auto_rotation_btn_state(scheduler.is_running)
+        self.title_auto_rotate_btn.clicked.connect(self._toggle_auto_rotation)
+
+        self.title_folder_btn = QPushButton(self)
+        self.title_folder_btn.setObjectName("TitleBarFolderBtn")
+        self.title_folder_btn.setIcon(create_icon("folder", "#475569", size=15))
+        self.title_folder_btn.setToolTip("打开壁纸保存目录")
+        self.title_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_folder_btn.clicked.connect(self._open_download_dir)
+
+        # Global search box
+        self.title_search_box = TitleBarSearchBox(self)
+        self.title_search_box.search_requested.connect(self._on_global_search)
+
+        # Subtle left margin on first tool button to visually separate from menu bar
+        self.title_next_btn.setStyleSheet("margin-left: 6px;")
+
+        if self.titleBar is not None:
+            self.titleBar.addCustomWidget(self.title_next_btn, align="left")
+            self.titleBar.addCustomWidget(self.title_auto_rotate_btn, align="left")
+            self.titleBar.addCustomWidget(self.title_folder_btn, align="left")
+            self.titleBar.addCustomWidget(self.title_search_box, align="right")
+
+        self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.search_shortcut.activated.connect(self._focus_search_box)
+
+    def _toggle_auto_rotation(self) -> None:
+        if scheduler.is_running:
+            scheduler.stop()
+        else:
+            scheduler.start()
+
+    def _sync_auto_rotation_btn_state(self, is_running: bool) -> None:
+        if not hasattr(self, "title_auto_rotate_btn"):
+            return
+        self.title_auto_rotate_btn.setChecked(is_running)
+        if is_running:
+            self.title_auto_rotate_btn.setIcon(create_icon("pause", "#0078D4", size=15))
+            self.title_auto_rotate_btn.setToolTip("自动轮播运行中（点击暂停）")
+        else:
+            self.title_auto_rotate_btn.setIcon(create_icon("play", "#475569", size=15))
+            self.title_auto_rotate_btn.setToolTip("开启自动轮播")
+
+    def _focus_search_box(self) -> None:
+        self.title_search_box.setFocus()
+        self.title_search_box.selectAll()
+
+    def _on_global_search(self, kw: str) -> None:
+        self._select_navigation_page(0)
+        if kw:
+            self.gallery_page.search_keyword(kw)
+        else:
+            self.gallery_page.reset_search()
+
+    def _sync_search_box_text(self, text: str) -> None:
+        if self.title_search_box.text() != text:
+            self.title_search_box.setText(text)
+
     def _init_tray(self) -> None:
         self.tray_icon = AppTrayIcon(self)
         self.tray_icon.show_main_window_requested.connect(self._show_and_activate)
@@ -224,12 +297,21 @@ class MainWindow(ModernWindow):
         self.favorites_page.apply_wallpaper_requested.connect(self._apply_specific_wallpaper)
         self.history_page.apply_wallpaper_requested.connect(self._apply_specific_wallpaper)
 
+        # Connect gallery search synchronization with title bar search box
+        self.gallery_page.search_applied.connect(self._sync_search_box_text)
+        self.gallery_page.search_cleared.connect(self.title_search_box.clear)
+
         # Connect history auto-refresh on wallpaper applied
         scheduler.wallpaper_applied.connect(lambda _: self.history_page.refresh())
 
         # Start auto-rotation scheduler if enabled
         scheduler.status_changed.connect(self.auto_rotation_action.setChecked)
+        scheduler.status_changed.connect(self._sync_auto_rotation_btn_state)
         scheduler.start_if_enabled()
+
+        app_instance = QApplication.instance()
+        if app_instance is not None:
+            app_instance.aboutToQuit.connect(scheduler.shutdown)
 
     def _select_navigation_page(self, index: int) -> None:
         self.nav_view.setCurrentIndex(index)
@@ -263,6 +345,7 @@ class MainWindow(ModernWindow):
 
     def _sync_menu_bar_state(self) -> None:
         self.auto_rotation_action.setChecked(scheduler.is_running)
+        self._sync_auto_rotation_btn_state(scheduler.is_running)
 
     def _open_download_dir(self) -> None:
         path = Path(config.download_dir)
@@ -296,7 +379,7 @@ class MainWindow(ModernWindow):
         self._is_quitting = True
         if hasattr(self, "tray_icon") and self.tray_icon:
             self.tray_icon.hide()
-        scheduler.stop()
+        scheduler.shutdown()
         self.close()
         QApplication.quit()
 
@@ -318,6 +401,6 @@ class MainWindow(ModernWindow):
             self._is_quitting = True
             if hasattr(self, "tray_icon") and self.tray_icon:
                 self.tray_icon.hide()
-            scheduler.stop()
+            scheduler.shutdown()
             event.accept()
             QApplication.quit()

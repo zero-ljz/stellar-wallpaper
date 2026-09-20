@@ -3,7 +3,8 @@
 import sys
 from typing import Any, cast
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from pyside6_modern_widgets import ModernMenu, ModernMenuBar, ModernWindow
@@ -268,3 +269,120 @@ def test_wallpaper_card_selection_mode(monkeypatch) -> None:
 
     card.set_selection_mode(False)
     assert not card.is_selected()
+
+
+def test_title_bar_tool_buttons(monkeypatch) -> None:
+    get_qapp()
+    monkeypatch.setattr(
+        "app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None
+    )
+
+    class LightweightMainWindow(MainWindow):
+        def _init_tray(self) -> None:
+            pass
+
+    window = LightweightMainWindow()
+    assert hasattr(window, "title_next_btn")
+    assert hasattr(window, "title_auto_rotate_btn")
+    assert hasattr(window, "title_folder_btn")
+    assert window.titleBar.left_layout.indexOf(window.title_next_btn) >= 0
+    assert window.titleBar.left_layout.indexOf(window.title_auto_rotate_btn) >= 0
+    assert window.titleBar.left_layout.indexOf(window.title_folder_btn) >= 0
+    assert window.titleBar.left_layout.indexOf(window.menu_bar) < window.titleBar.left_layout.indexOf(window.title_next_btn)
+
+    # Test trigger next wallpaper
+    triggered = []
+    monkeypatch.setattr(
+        "app.ui.main_window.scheduler.trigger_switch",
+        lambda source: triggered.append(source),
+    )
+    window.title_next_btn.click()
+    assert len(triggered) == 1
+
+    # Test toggle auto rotation
+    starts = []
+    stops = []
+    monkeypatch.setattr("app.ui.main_window.scheduler.start", lambda: starts.append(True))
+    monkeypatch.setattr("app.ui.main_window.scheduler.stop", lambda: stops.append(True))
+    from app.core.scheduler import scheduler
+    scheduler._is_running = False
+
+    window.title_auto_rotate_btn.click()
+    assert len(starts) == 1
+
+    scheduler._is_running = True
+    window.title_auto_rotate_btn.click()
+    assert len(stops) == 1
+    scheduler._is_running = False
+
+    # Test status changed synchronizes button
+    window._sync_auto_rotation_btn_state(True)
+    assert window.title_auto_rotate_btn.isChecked()
+    assert "暂停" in window.title_auto_rotate_btn.toolTip()
+
+    window._sync_auto_rotation_btn_state(False)
+    assert not window.title_auto_rotate_btn.isChecked()
+    assert "开启" in window.title_auto_rotate_btn.toolTip()
+
+    # Test open download dir
+    opened = []
+    monkeypatch.setattr(
+        "app.ui.main_window.MainWindow._open_download_dir",
+        lambda _self: opened.append(True),
+    )
+    window.title_folder_btn.click()
+    assert len(opened) == 1
+
+    window.hide()
+
+
+def test_title_bar_global_search_box(monkeypatch) -> None:
+    get_qapp()
+    monkeypatch.setattr(
+        "app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None
+    )
+
+    class LightweightMainWindow(MainWindow):
+        def _init_tray(self) -> None:
+            pass
+
+    window = LightweightMainWindow()
+    assert hasattr(window, "title_search_box")
+    assert window.title_search_box is not None
+    assert window.titleBar is not None
+    assert window.titleBar.right_layout.indexOf(window.title_search_box) >= 0
+
+    # Test clear action visibility and clicking
+    assert not window.title_search_box.clear_action.isVisible()
+    window.title_search_box.setText("壁纸")
+    assert window.title_search_box.clear_action.isVisible()
+    window.title_search_box.clear_action.trigger()
+    assert window.title_search_box.text() == ""
+    assert not window.title_search_box.clear_action.isVisible()
+
+    # Test global search switches to gallery and executes search
+    window.nav_view.setCurrentIndex(2)  # switch away to page 2
+    assert window.nav_view.currentIndex() == 2
+
+    window.title_search_box.setText("赛博朋克")
+    window.title_search_box.search_requested.emit("赛博朋克")
+
+    assert window.nav_view.currentIndex() == 0  # switched back to GalleryPage
+    assert window.gallery_page._current_keyword == "赛博朋克"
+    assert window.gallery_page.search_input.text() == "赛博朋克"
+
+    # Test gallery search input syncs to title_search_box
+    window.gallery_page.search_keyword("自然风光")
+    assert window.title_search_box.text() == "自然风光"
+
+    # Test reset search clears title_search_box
+    window.gallery_page.reset_search()
+    assert window.title_search_box.text() == ""
+
+    # Test Escape key clears text and focus
+    window.title_search_box.setText("temp")
+    event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
+    window.title_search_box.keyPressEvent(event)
+    assert window.title_search_box.text() == ""
+
+    window.hide()

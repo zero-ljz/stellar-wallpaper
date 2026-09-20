@@ -267,7 +267,7 @@ class SchedulerPage(QWidget):
         outer_layout.addWidget(scroll)
 
     def _load_config(self) -> None:
-        self._update_status_ui(scheduler.is_running)
+        self._update_status_ui(scheduler.is_running or config.auto_switch_enabled)
 
     def _toggle_scheduler(self) -> None:
         if scheduler.is_running:

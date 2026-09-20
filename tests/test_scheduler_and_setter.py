@@ -37,3 +37,31 @@ def test_scheduler_interval_logic():
 
     sched.stop()
     assert sched.is_running is False
+
+
+def test_scheduler_startup_state_restore():
+    _app = get_qapp()
+    sched = WallpaperScheduler()
+
+    # 1. Manually start -> config.auto_switch_enabled should be True
+    sched.start()
+    assert sched.is_running is True
+    assert config.auto_switch_enabled is True
+
+    # 2. Shutdown (simulating app close) -> should NOT reset config.auto_switch_enabled to False
+    sched.shutdown()
+    assert sched.is_running is False
+    assert config.auto_switch_enabled is True
+
+    # 3. Next startup: start_if_enabled() -> should restore running state
+    sched.start_if_enabled()
+    assert sched.is_running is True
+
+    # 4. User explicitly stops auto-rotation -> config.auto_switch_enabled becomes False
+    sched.stop()
+    assert sched.is_running is False
+    assert config.auto_switch_enabled is False
+
+    # 5. Next startup with disabled setting: start_if_enabled() -> should remain stopped
+    sched.start_if_enabled()
+    assert sched.is_running is False
