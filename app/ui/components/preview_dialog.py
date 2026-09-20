@@ -21,6 +21,7 @@ from ...config import config
 from ...core.api_client import api_client, get_full_image_url
 from ...core.cache_manager import cache_mgr
 from ...core.database import db
+from ...core.download_manager import build_download_target, download_wallpaper
 from ...core.image_loader import image_loader
 from ..icons import create_icon
 from .message_box import show_save_success, show_warning
@@ -56,7 +57,8 @@ class PreviewDialog(ModernDialog):
 
     def _init_ui(self) -> None:
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        # Top margin is optically balanced (5px) beneath the ModernDialog client-side title bar
+        layout.setContentsMargins(16, 5, 16, 16)
         layout.setSpacing(16)
 
         # Left: Large Image Display Area
@@ -158,6 +160,7 @@ class PreviewDialog(ModernDialog):
         self.save_btn = QPushButton("保存到本地", sidebar)
         self.save_btn.setIcon(create_icon("download", color="#475569", size=16))
         self.save_btn.clicked.connect(self._on_save)
+        self._update_download_status()
         sidebar_layout.addWidget(self.save_btn)
 
         wid, url = _extract_item_ids(self.item_data)
@@ -232,25 +235,32 @@ class PreviewDialog(ModernDialog):
         self.apply_requested.emit(self.item_data)
         self.close()
 
-    def _on_save(self) -> None:
-        url = get_full_image_url(self.item_data)
+    def _update_download_status(self) -> None:
         save_dir = Path(config.download_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"Wallpaper_{self.item_data.get('id', 'pic')}.jpg"
-        target = save_dir / filename
-
-        cached = cache_mgr.get_wallpaper_path(url)
-        if cached.exists():
-            import shutil
-
-            shutil.copy2(cached, target)
-            show_save_success(self, target)
+        target = build_download_target(self.item_data, save_dir)
+        if target is not None and target.exists() and target.stat().st_size > 0:
+            self.save_btn.setText("已保存到本地")
+            self.save_btn.setIcon(create_icon("check", color="#10B981", size=16))
+            self.save_btn.setToolTip("壁纸已保存到本地 (点击打开所在目录)")
         else:
-            ok = api_client.download_image(url, target)
-            if ok:
-                show_save_success(self, target)
-            else:
-                show_warning(self, "保存失败", "保存壁纸失败，请重试")
+            self.save_btn.setText("保存到本地")
+            self.save_btn.setIcon(create_icon("download", color="#475569", size=16))
+            self.save_btn.setToolTip("")
+
+    def _on_save(self) -> None:
+        save_dir = Path(config.download_dir)
+        target = build_download_target(self.item_data, save_dir)
+        if target is not None and target.exists() and target.stat().st_size > 0:
+            self._update_download_status()
+            show_save_success(self.window(), target, title="壁纸已存在")
+            return
+
+        res = download_wallpaper(self.item_data, save_dir)
+        if res.status in ("downloaded", "skipped") and res.target is not None:
+            self._update_download_status()
+            show_save_success(self.window(), res.target)
+        else:
+            show_warning(self.window(), "保存失败", "保存壁纸失败，请重试")
 
     def _on_toggle_fav(self) -> None:
         wid, url = _extract_item_ids(self.item_data)

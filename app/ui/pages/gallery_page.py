@@ -284,9 +284,9 @@ class GalleryPage(QWidget):
 
         # Right Search Box & Actions
         self.search_input = QLineEdit(self)
-        self.search_input.setFixedWidth(280)
+        self.search_input.setFixedWidth(130)
         self.search_input.setFixedHeight(34)
-        self.search_input.setPlaceholderText("搜索壁纸（必应/摄影/4K/动漫/风景）...")
+        self.search_input.setPlaceholderText("搜索壁纸...")
         self.search_input.returnPressed.connect(self._on_search)
         control_bar.addWidget(self.search_input)
 

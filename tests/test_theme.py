@@ -82,3 +82,21 @@ def test_inactive_window_fades_title_and_menu_text() -> None:
     finally:
         window.close()
         other_window.close()
+
+
+def test_menu_inherits_application_font_point_size_and_family() -> None:
+    app = get_qapp()
+    apply_fusion_light_theme(app)
+
+    from pyside6_modern_widgets import ModernMenu, ModernMenuBar
+
+    menu = ModernMenu()
+    menu_bar = ModernMenuBar()
+
+    # Verify menus inherit the full application font (10pt LXGW WenKai Lite)
+    # instead of regressing to the 9pt default system font.
+    assert menu.font().family() == "LXGW WenKai Lite"
+    assert menu.font().pointSize() == 10
+    assert menu_bar.font().family() == "LXGW WenKai Lite"
+    assert menu_bar.font().pointSize() == 10
+

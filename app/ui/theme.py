@@ -85,17 +85,6 @@ def apply_fusion_light_theme(app: QApplication) -> None:
     theme_manager().setMode(ThemeMode.LIGHT)
     app.setStyle("Fusion")
 
-    # High-DPI screen (3.2K / 4K with 150%/200% scaling) optimal font setup:
-    # 1. Use natural Normal weight (400) to avoid algorithmic faux-bold smudging on single-weight fonts.
-    # 2. Use PreferNoHinting to preserve true vector outline curves without 96-DPI integer grid distortion.
-    font_family = load_application_fonts()
-    app_font = QFont(font_family)
-    app_font.setPointSize(10)
-    app_font.setWeight(QFont.Weight.Normal)
-    app_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
-    app_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias | QFont.StyleStrategy.PreferQuality)
-    app.setFont(app_font)
-
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window, QColor(COLOR_BG))
     palette.setColor(QPalette.ColorRole.WindowText, QColor(COLOR_TEXT_MAIN))
@@ -111,18 +100,25 @@ def apply_fusion_light_theme(app: QApplication) -> None:
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(COLOR_TEXT_HINT))
     app.setPalette(palette)
 
+    font_family = load_application_fonts()
+
+    # Load stylesheet BEFORE setting the application font. This prevents Qt's
+    # QStyleSheetStyle parser from resetting popup menus and widgets back to
+    # the default 9pt Windows system font.
     app.setStyleSheet(get_global_stylesheet(font_family))
+
+    # Apply global font LAST to give it authoritative precedence across all widgets
+    # including ModernMenu, ModernMenuBar, dialogs, and popups.
+    app_font = QFont(font_family)
+    app_font.setPointSize(10)
+    app_font.setWeight(QFont.Weight.Normal)
+    app_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    app_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias | QFont.StyleStrategy.PreferQuality)
+    app.setFont(app_font)
 
 
 def get_global_stylesheet(font_family: str = "LXGW WenKai Lite") -> str:
     return f"""
-/* Global Typography and Base */
-QWidget {{
-    font-family: "{font_family}", "Segoe UI", "Microsoft YaHei UI", sans-serif;
-    font-size: 13px;
-    font-weight: normal;
-}}
-
 /* All Dialogs and Message Boxes - Pure Fusion Light Mode */
 QDialog, QMessageBox, QFileDialog, QInputDialog {{
     background-color: #FFFFFF;

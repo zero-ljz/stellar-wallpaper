@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from ...config import config
 from ...core.api_client import api_client, get_full_image_url
 from ...core.database import db
+from ...core.download_manager import build_download_target, download_wallpaper
 from ...core.image_loader import image_loader
 from ..icons import create_icon
 from .message_box import show_info, show_save_success, show_success, show_warning
@@ -212,6 +213,7 @@ class WallpaperCard(QFrame):
             }
         """)
         self.download_btn.clicked.connect(self._on_download_clicked)
+        self._update_download_status()
         action_layout.addWidget(self.download_btn)
 
         self.action_row_widget.hide()
@@ -332,21 +334,30 @@ class WallpaperCard(QFrame):
         self._update_fav_style()
         self.favorite_toggled.emit(self.item_data, self._is_favorited)
 
+    def _update_download_status(self) -> None:
+        save_dir = Path(config.download_dir)
+        target = build_download_target(self.item_data, save_dir)
+        if target is not None and target.exists() and target.stat().st_size > 0:
+            self.download_btn.setIcon(create_icon("check", "#10B981", 16))
+            self.download_btn.setToolTip("壁纸已保存到本地 (点击查看目录)")
+        else:
+            self.download_btn.setIcon(create_icon("download", "#0F172A", 16))
+            self.download_btn.setToolTip("保存原图到本地")
+
     def _on_download_clicked(self) -> None:
-        url = get_full_image_url(self.item_data)
-        if not url:
+        save_dir = Path(config.download_dir)
+        target = build_download_target(self.item_data, save_dir)
+        if target is not None and target.exists() and target.stat().st_size > 0:
+            self._update_download_status()
+            show_save_success(self.window(), target, title="壁纸已存在")
             return
 
-        save_dir = Path(config.download_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"Wallpaper_{self.item_data.get('id', 'pic')}_{int(hash(url)) & 0xFFFFFF}.jpg"
-        target = save_dir / filename
-
-        ok = api_client.download_image(url, target)
-        if ok:
-            show_save_success(self, target)
+        res = download_wallpaper(self.item_data, save_dir)
+        if res.status in ("downloaded", "skipped") and res.target is not None:
+            self._update_download_status()
+            show_save_success(self.window(), res.target)
         else:
-            show_warning(self, "保存失败", "下载壁纸失败，请检查网络连接")
+            show_warning(self.window(), "保存失败", "下载壁纸失败，请检查网络连接")
 
     def _load_thumbnail(self) -> None:
         url = (

@@ -45,8 +45,8 @@ def _create_message_box(
     cancel_text: str | None = None,
     open_folder_path: Path | str | None = None,
 ) -> tuple[ModernMessageBox, QPushButton, QPushButton | None, QAbstractButton | None]:
-    """Create a component-library message box with application-specific actions."""
-    box = ModernMessageBox(parent=parent)
+    dialog_parent = parent.window() if isinstance(parent, QWidget) else parent
+    box = ModernMessageBox(parent=dialog_parent)
     box.setWindowTitle(title)
     box.setText(message)
     box.setTextInteractionFlags(
@@ -71,18 +71,75 @@ def _create_message_box(
             "打开所在目录", ModernMessageBox.ButtonRole.ActionRole
         )
         open_button.setIcon(create_icon("folder", color="#334155", size=15))
+        open_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #0B0F19;
+                border: 1px solid #CBD5E1;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 6px 14px;
+            }
+            QPushButton:hover {
+                background-color: #F1F5F9;
+                border-color: #94A3B8;
+                color: #0F172A;
+            }
+            QPushButton:pressed {
+                background-color: #E2E8F0;
+            }
+        """)
 
     cancel_button: QPushButton | None = None
     if cancel_text is not None:
         cancel_button = box.addButton(
             cancel_text, ModernMessageBox.ButtonRole.RejectRole
         )
+        cancel_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #334155;
+                border: 1px solid #CBD5E1;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 6px 16px;
+            }
+            QPushButton:hover {
+                background-color: #F1F5F9;
+                border-color: #94A3B8;
+                color: #0F172A;
+            }
+            QPushButton:pressed {
+                background-color: #E2E8F0;
+            }
+        """)
         box.setEscapeButton(cancel_button)
 
     ok_button = box.addButton(ok_text, ModernMessageBox.ButtonRole.AcceptRole)
-    ok_button.setProperty("class", "PrimaryButton")
-    ok_button.style().unpolish(ok_button)
-    ok_button.style().polish(ok_button)
+    ok_button.setCursor(Qt.CursorShape.PointingHandCursor)
+    ok_button.setStyleSheet("""
+        QPushButton {
+            background-color: #0078D4;
+            color: #FFFFFF;
+            border: 1px solid #0078D4;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 20px;
+        }
+        QPushButton:hover {
+            background-color: #1084D9;
+            border-color: #1084D9;
+        }
+        QPushButton:pressed {
+            background-color: #0067B8;
+            border-color: #0067B8;
+        }
+    """)
     box.setDefaultButton(ok_button)
     return box, ok_button, cancel_button, open_button
 

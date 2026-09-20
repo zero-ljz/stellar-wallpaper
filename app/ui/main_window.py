@@ -53,39 +53,20 @@ class MainWindow(ModernWindow):
         self._init_events()
 
     def showMaximized(self) -> None:
-        """Preserve the normal geometry when maximizing on Windows.
-
-        The component library delegates this transition to Qt. A maximized
-        window restored from the tray can consequently lose its previous
-        normal geometry, so retain it before invoking Win32.
-        """
-        if sys.platform != "win32":
-            super().showMaximized()
-            return
-
+        """Preserve the normal geometry when maximizing."""
         if not self.isMaximized():
             geometry = self.geometry()
             if geometry.isValid():
                 self._normal_geometry_before_maximize = QRect(geometry)
-        if self.isHidden():
-            self.show()
-        ctypes.windll.user32.ShowWindow(int(self.winId()), 3)  # SW_MAXIMIZE
-        self._sync_window_state_style()
+        super().showMaximized()
 
     def showNormal(self) -> None:
-        """Restore the geometry captured before a Windows maximization."""
-        if sys.platform != "win32":
-            super().showNormal()
-            return
-
+        """Restore the geometry captured before maximization."""
+        super().showNormal()
         geometry = getattr(self, "_normal_geometry_before_maximize", None)
-        if self.isHidden():
-            self.show()
-        ctypes.windll.user32.ShowWindow(int(self.winId()), 9)  # SW_RESTORE
         if isinstance(geometry, QRect) and geometry.isValid():
             self.setGeometry(geometry)
         self._normal_geometry_before_maximize = None
-        self._sync_window_state_style()
 
     def _is_native_maximized(self) -> bool:
         """Report the Win32 maximize state for title-bar state checks."""
@@ -186,7 +167,7 @@ class MainWindow(ModernWindow):
 
         view_menu = self.menu_bar.addMenu("视图(&V)")
         self.navigation_action_group = QActionGroup(self)
-        self.navigation_action_group.setExclusive(True)
+        self.navigation_action_group.setExclusive(False)
         self.navigation_actions: list[QAction] = []
         page_entries = (
             ("探索发现", "gallery"),
@@ -201,10 +182,11 @@ class MainWindow(ModernWindow):
             action.setCheckable(True)
             action.setChecked(index == self.nav_view.currentIndex())
             action.triggered.connect(
-                lambda _checked=False, target=index: self.nav_view.setCurrentIndex(target)
+                lambda _checked=False, target=index: self._select_navigation_page(target)
             )
             self.navigation_action_group.addAction(action)
             self.navigation_actions.append(action)
+        view_menu.aboutToShow.connect(self._sync_navigation_menu_state)
 
         program_menu = self.menu_bar.addMenu("程序(&P)")
         open_folder_action = program_menu.addAction(
@@ -249,9 +231,19 @@ class MainWindow(ModernWindow):
         scheduler.status_changed.connect(self.auto_rotation_action.setChecked)
         scheduler.start_if_enabled()
 
+    def _select_navigation_page(self, index: int) -> None:
+        self.nav_view.setCurrentIndex(index)
+        self._sync_navigation_actions(index)
+
+    def _sync_navigation_actions(self, current_index: int) -> None:
+        for i, action in enumerate(self.navigation_actions):
+            action.setChecked(i == current_index)
+
+    def _sync_navigation_menu_state(self) -> None:
+        self._sync_navigation_actions(self.nav_view.currentIndex())
+
     def _on_page_changed(self, index: int) -> None:
-        if 0 <= index < len(self.navigation_actions):
-            self.navigation_actions[index].setChecked(True)
+        self._sync_navigation_actions(index)
         current_page = self.nav_view.widget(index)
         if current_page == self.favorites_page:
             self.favorites_page.refresh()

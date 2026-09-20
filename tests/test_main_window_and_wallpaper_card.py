@@ -126,9 +126,23 @@ def test_main_window_uses_title_bar_menu_and_centered_title(monkeypatch) -> None
     assert window.titleBar is not None
     assert window.titleBar.titleLabel.alignment() & Qt.AlignmentFlag.AlignHCenter
 
+    assert not window.navigation_action_group.isExclusive()
+    assert window.navigation_actions[0].isChecked()
+
     window.navigation_actions[3].trigger()
     assert window.nav_view.currentIndex() == 3
     assert window.navigation_actions[3].isChecked()
+    assert not window.navigation_actions[0].isChecked()
+
+    # Repeated trigger should keep active page checked instead of toggling off
+    window.navigation_actions[3].trigger()
+    assert window.navigation_actions[3].isChecked()
+
+    # Nav view index change should synchronize checked state across menu actions
+    window.nav_view.setCurrentIndex(1)
+    assert window.navigation_actions[1].isChecked()
+    assert not window.navigation_actions[3].isChecked()
+
     window.hide()
 
 
