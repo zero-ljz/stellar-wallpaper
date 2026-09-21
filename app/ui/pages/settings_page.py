@@ -26,7 +26,7 @@ from ...config import config
 from ...constants import APP_NAME, APP_VERSION, WALLPAPER_STYLES
 from ...core.cache_manager import cache_mgr
 from ...core.wallpaper_setter import wallpaper_setter
-from ..components.message_box import show_info, show_question, show_success
+from ..components.message_box import open_directory, show_info, show_question, show_success
 from ..components.switch_toggle import SwitchToggle
 from ..icons import create_fluent_pixmap, create_icon
 
@@ -270,7 +270,7 @@ class SettingsPage(QWidget):
         sys_vbox = QVBoxLayout()
         sys_vbox.setSpacing(8)
 
-        sys_hdr = QLabel("Windows 系统集成与选项", container)
+        sys_hdr = QLabel("系统集成与选项", container)
         font = sys_hdr.font()
         font.setBold(True)
         font.setPointSizeF(11)
@@ -282,7 +282,7 @@ class SettingsPage(QWidget):
         self.startup_switch = SwitchToggle(container)
         self.startup_switch.setChecked(wallpaper_setter.is_startup_enabled() or config.start_with_windows)
         self.startup_switch.toggled.connect(self._on_startup_toggled)
-        row1 = SettingRowCard("power", "开机自动启动", "随 Windows 系统开机在后台静默启动运行", self.startup_switch, container)
+        row1 = SettingRowCard("power", "开机自动启动", "随系统开机在后台静默启动运行", self.startup_switch, container)
         sys_vbox.addWidget(row1)
 
         # Switch 2: Close to Tray
@@ -380,8 +380,7 @@ class SettingsPage(QWidget):
     def _on_open_dir(self) -> None:
         path = Path(config.download_dir)
         path.mkdir(parents=True, exist_ok=True)
-        if os.name == "nt":
-            os.startfile(str(path))
+        open_directory(path)
 
     def _on_clear_cache(self) -> None:
         if show_question(
@@ -396,4 +395,4 @@ class SettingsPage(QWidget):
 
     def _on_startup_toggled(self, enabled: bool) -> None:
         config.start_with_windows = enabled
-        wallpaper_setter.set_startup_with_windows(enabled)
+        wallpaper_setter.set_startup(enabled)

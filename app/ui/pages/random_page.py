@@ -28,7 +28,7 @@ from ...config import config
 from ...constants import CATEGORIES, CATEGORY_MAP
 from ...core.database import db
 from ...core.scheduler import scheduler
-from ..components.message_box import show_info, show_success, show_warning
+from ..components.message_box import open_directory, show_info, show_success, show_warning
 from ..components.wallpaper_card import extract_item_ids as _extract_item_ids
 from ..icons import create_fluent_icon, create_icon
 
@@ -509,8 +509,6 @@ class RandomSwitcherPage(QWidget):
             return
         local = self._current_wallpaper.get("local_path")
         if local and Path(local).exists():
-            if os.name == "nt":
-                os.system(f'explorer /select,"{local}"')
+            open_directory(local)
         else:
-            if os.name == "nt":
-                os.startfile(config.download_dir)
+            open_directory(config.download_dir)

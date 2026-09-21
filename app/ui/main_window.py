@@ -22,6 +22,7 @@ from ..config import config
 from ..constants import APP_NAME, APP_VERSION
 from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
+from .components.message_box import open_directory
 from .components.title_search_box import TitleBarSearchBox
 from .components.tray_icon import AppTrayIcon, create_default_tray_icon
 from .icons import create_icon
@@ -206,7 +207,7 @@ class MainWindow(ModernWindow):
             create_icon("power", "#DC2626", size=16),
             "退出程序",
         )
-        quit_action.setShortcut(QKeySequence("Ctrl+Q"))
+        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         quit_action.triggered.connect(self.force_quit)
 
         if self.titleBar is not None:
@@ -248,7 +249,7 @@ class MainWindow(ModernWindow):
             self.titleBar.addCustomWidget(self.title_folder_btn, align="left")
             self.titleBar.addCustomWidget(self.title_search_box, align="right")
 
-        self.search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.search_shortcut = QShortcut(QKeySequence.StandardKey.Find, self)
         self.search_shortcut.activated.connect(self._focus_search_box)
 
     def _toggle_auto_rotation(self) -> None:
@@ -350,8 +351,7 @@ class MainWindow(ModernWindow):
     def _open_download_dir(self) -> None:
         path = Path(config.download_dir)
         path.mkdir(parents=True, exist_ok=True)
-        if os.name == "nt":
-            os.startfile(str(path))
+        open_directory(path)
 
     def _apply_specific_wallpaper(self, item_data: dict[str, Any]) -> None:
         scheduler.trigger_switch(specific_item=item_data)

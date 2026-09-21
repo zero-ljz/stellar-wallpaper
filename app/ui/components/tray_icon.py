@@ -25,6 +25,7 @@ from ...core.database import db
 from ...core.scheduler import scheduler
 from ..icons import create_fluent_pixmap, create_icon
 from .desktop_notification import get_desktop_notification
+from .message_box import open_directory
 
 
 def create_default_tray_icon() -> QIcon:
@@ -274,8 +275,7 @@ class AppTrayIcon(QSystemTrayIcon):
     def _open_download_dir(self) -> None:
         path = Path(config.download_dir)
         path.mkdir(parents=True, exist_ok=True)
-        if os.name == "nt":
-            os.startfile(str(path))
+        open_directory(path)
 
     def _on_wallpaper_applied(self, item: dict[str, Any]) -> None:
         self._sync_menu_state()

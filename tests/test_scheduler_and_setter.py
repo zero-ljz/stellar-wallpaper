@@ -65,3 +65,50 @@ def test_scheduler_startup_state_restore():
     # 5. Next startup with disabled setting: start_if_enabled() -> should remain stopped
     sched.start_if_enabled()
     assert sched.is_running is False
+
+
+def test_wallpaper_setter_cross_platform(monkeypatch, tmp_path):
+    img_file = tmp_path / "test.jpg"
+    img_file.write_text("fake image content")
+
+    # Non-existent file should return False
+    assert WallpaperSetter.apply_wallpaper(tmp_path / "nonexistent.jpg") is False
+
+    if sys.platform == "darwin":
+        # On macOS, verify it invokes osascript
+        called_scripts = []
+
+        def mock_run(cmd, capture_output=True, text=True, check=False):
+            called_scripts.append(cmd)
+            res = MagicMock()
+            res.returncode = 0
+            res.stdout = "/path/to/wallpaper.jpg"
+            res.stderr = ""
+            return res
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+        ok = WallpaperSetter.apply_wallpaper(img_file)
+        assert ok is True
+        assert len(called_scripts) > 0
+        assert "osascript" in called_scripts[0][0]
+
+        # Test current wallpaper query
+        cur = WallpaperSetter.get_current_wallpaper_path()
+        assert cur == "/path/to/wallpaper.jpg"
+
+        # Test macOS startup plist creation/deletion
+        plist_path = tmp_path / "com.stellar.wallpaper.plist"
+        monkeypatch.setattr(
+            WallpaperSetter,
+            "_get_macos_launch_agent_path",
+            staticmethod(lambda: plist_path),
+        )
+
+        assert WallpaperSetter.is_startup_enabled() is False
+        assert WallpaperSetter.set_startup(True) is True
+        assert plist_path.exists()
+        assert WallpaperSetter.is_startup_enabled() is True
+        assert WallpaperSetter.set_startup(False) is True
+        assert not plist_path.exists()
+        assert WallpaperSetter.is_startup_enabled() is False
+

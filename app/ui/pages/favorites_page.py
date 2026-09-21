@@ -25,7 +25,7 @@ from ...config import config
 from ...core.database import db
 from ...core.download_manager import wallpaper_download_key
 from ..batch_download import BatchDownloadWorker
-from ..components.message_box import show_batch_download_result, show_info
+from ..components.message_box import open_directory, show_batch_download_result, show_info
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard
 from ..icons import create_fluent_pixmap, create_icon
@@ -576,8 +576,7 @@ class FavoritesPage(QWidget):
     def _open_download_dir(self) -> None:
         path = Path(config.download_dir)
         path.mkdir(parents=True, exist_ok=True)
-        if os.name == "nt":
-            os.startfile(str(path))
+        open_directory(path)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)

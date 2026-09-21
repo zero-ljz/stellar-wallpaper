@@ -105,14 +105,14 @@ class WallpaperSwitchWorker(QThread):
             if self._is_cancelled:
                 return
 
-            # 2. Set Wallpaper via Windows API
-            self.stage_changed.emit("正在应用到 Windows 桌面...")
+            # 2. Set Wallpaper
+            self.stage_changed.emit("正在应用到桌面...")
             style = config.wallpaper_style
             local_file = item["local_path"]
             
             success = wallpaper_setter.apply_wallpaper(local_file, style)
             if not success:
-                self.finished_error.emit("设置 Windows 壁纸失败")
+                self.finished_error.emit("设置桌面壁纸失败")
                 return
 
             # 3. Record in Database & Config

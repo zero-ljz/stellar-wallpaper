@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from ...constants import WALLPAPER_CACHE_DIR
 from ...core.database import db
-from ..components.message_box import show_question
+from ..components.message_box import open_directory, show_question
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard, extract_item_ids
 from ..icons import create_fluent_pixmap, create_icon
@@ -302,8 +302,7 @@ class HistoryPage(QWidget):
     def _open_folder(self) -> None:
         path = Path(WALLPAPER_CACHE_DIR)
         path.mkdir(parents=True, exist_ok=True)
-        if os.name == "nt":
-            os.startfile(str(path))
+        open_directory(path)
 
     def _clear_history(self) -> None:
         if show_question(self, "确认清空", "确定要清空所有历史记录吗？"):

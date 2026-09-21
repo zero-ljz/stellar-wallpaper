@@ -13,24 +13,35 @@ from ..icons import create_fluent_pixmap, create_icon
 
 
 def open_directory(file_path: Path | str) -> None:
-    """Open a directory or select a specific file in Windows Explorer."""
+    """Open a directory or reveal a specific file in the system file manager (Explorer / Finder / file manager)."""
     path = Path(file_path).resolve()
-    if sys.platform != "win32":
-        return
-
     try:
-        if path.is_dir():
+        if sys.platform == "win32":
             import os
 
-            os.startfile(str(path))
-        elif path.exists():
+            if path.is_dir():
+                os.startfile(str(path))
+            elif path.exists():
+                import subprocess
+
+                subprocess.Popen(["explorer", f"/select,{path}"])
+            elif path.parent.exists():
+                os.startfile(str(path.parent))
+        elif sys.platform == "darwin":
             import subprocess
 
-            subprocess.Popen(["explorer", f"/select,{path}"])
-        elif path.parent.exists():
-            import os
+            if path.is_dir():
+                subprocess.Popen(["open", str(path)])
+            elif path.exists():
+                subprocess.Popen(["open", "-R", str(path)])
+            elif path.parent.exists():
+                subprocess.Popen(["open", str(path.parent)])
+        else:
+            import subprocess
 
-            os.startfile(str(path.parent))
+            target = path if path.is_dir() else path.parent
+            if target.exists():
+                subprocess.Popen(["xdg-open", str(target)])
     except OSError as exc:
         print(f"Error opening directory for {path}: {exc}")
 
@@ -48,6 +59,12 @@ def _create_message_box(
     dialog_parent = parent.window() if isinstance(parent, QWidget) else parent
     box = ModernMessageBox(parent=dialog_parent)
     box.setWindowTitle(title)
+    if hasattr(box, "_title_bar") and hasattr(box._title_bar, "setTitle"):
+        box._title_bar.setTitle(title)
+    if sys.platform == "darwin":
+        # Qt's QMessageBox on macOS suppresses windowTitle() per Apple HIG.
+        # Preserve it on the modern message box for cross-platform consistency.
+        box.windowTitle = lambda: title  # type: ignore
     box.setText(message)
     box.setTextInteractionFlags(
         Qt.TextInteractionFlag.TextSelectableByMouse

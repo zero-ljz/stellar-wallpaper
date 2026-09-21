@@ -1,15 +1,41 @@
 """Constants and configuration defaults for the PySide6 Wallpaper Application."""
 
 import os
+import sys
 from pathlib import Path
 
 APP_NAME = "星澜壁纸"
 APP_ID = "com.stellar.wallpaper"
 APP_VERSION = "1.2.3"
 
+
+def _get_default_app_data_dir() -> Path:
+    custom_dir = os.environ.get("STELLAR_DATA_DIR")
+    if custom_dir:
+        return Path(custom_dir)
+    if sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", str(Path.home()))) / "StellarWallpaper"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "StellarWallpaper"
+    return Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))) / "StellarWallpaper"
+
+
+def _get_default_cache_dir(app_data_dir: Path) -> Path:
+    custom_cache = os.environ.get("STELLAR_CACHE_DIR")
+    if custom_cache:
+        return Path(custom_cache)
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "StellarWallpaper"
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            return Path(local_app_data) / "StellarWallpaper" / "cache"
+    return app_data_dir / "cache"
+
+
 # Application data directories
-DEFAULT_APP_DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "StellarWallpaper"
-CACHE_DIR = DEFAULT_APP_DATA_DIR / "cache"
+DEFAULT_APP_DATA_DIR = _get_default_app_data_dir()
+CACHE_DIR = _get_default_cache_dir(DEFAULT_APP_DATA_DIR)
 THUMB_CACHE_DIR = CACHE_DIR / "thumbs"
 WALLPAPER_CACHE_DIR = CACHE_DIR / "wallpapers"
 DB_PATH = DEFAULT_APP_DATA_DIR / "wallpaper.db"
