@@ -72,9 +72,12 @@ class MainWindow(ModernWindow):
 
     def _is_native_maximized(self) -> bool:
         """Report the Win32 maximize state for title-bar state checks."""
-        if sys.platform != "win32":
+        if sys.platform != "win32" or QApplication.platformName() == "offscreen":
             return self.isMaximized()
-        return bool(ctypes.windll.user32.IsZoomed(int(self.winId())))
+        hwnd = int(self.winId())
+        if not ctypes.windll.user32.IsWindow(hwnd):
+            return self.isMaximized()
+        return bool(ctypes.windll.user32.IsZoomed(hwnd))
 
     def _init_ui(self) -> None:
         # Initialize floating desktop notification service

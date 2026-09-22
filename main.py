@@ -4,6 +4,7 @@ import sys
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
+from pyside6_modern_widgets.i18n import load_translator
 
 from app.constants import APP_ID, APP_NAME
 from app.core.single_instance import SingleInstance
@@ -27,6 +28,11 @@ def main() -> int:
 
     # Apply Fusion style in Light mode
     apply_fusion_light_theme(app)
+
+    # Install component library Chinese translations
+    translator = load_translator("zh_CN", app)
+    if translator is not None:
+        app.installTranslator(translator)
 
     # Initialize Main Window
     window = MainWindow()

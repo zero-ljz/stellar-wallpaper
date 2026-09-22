@@ -188,7 +188,7 @@ def test_tray_restore_keeps_title_bar_in_restore_state() -> None:
     app.processEvents()
 
     assert window.isMaximized()
-    assert window.titleBar.maximizeButton.toolTip() == "向下还原"
+    assert window.titleBar.maximizeButton.toolTip() in ("向下还原", "还原", "Restore")
 
     window.titleBar.maximizeButton.click()
     QTest.qWait(150)
