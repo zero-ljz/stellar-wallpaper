@@ -150,7 +150,7 @@ class MainWindow(ModernWindow):
 
     def _init_menu_bar(self) -> None:
         self.menu_bar = ModernMenuBar(self)
-        self.menu_bar.setNativeMenuBar(False)
+        self.menu_bar.setNativeMenuBar(True)
 
         wallpaper_menu = self.menu_bar.addMenu("壁纸(&W)")
         self.next_wallpaper_action = wallpaper_menu.addAction(
