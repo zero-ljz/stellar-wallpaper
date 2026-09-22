@@ -9,6 +9,7 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from pyside6_modern_widgets import ModernMenu, ModernMenuBar, ModernWindow
 
+from app.config import config
 from app.ui.components.tray_icon import AppTrayIcon
 from app.ui.components.wallpaper_card import WallpaperCard
 from app.ui.main_window import MainWindow
@@ -273,6 +274,7 @@ def test_wallpaper_card_selection_mode(monkeypatch) -> None:
 
 def test_title_bar_tool_buttons(monkeypatch) -> None:
     get_qapp()
+    monkeypatch.setitem(config._config, "last_wallpaper", None)
     monkeypatch.setattr(
         "app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None
     )
@@ -284,11 +286,14 @@ def test_title_bar_tool_buttons(monkeypatch) -> None:
     window = LightweightMainWindow()
     assert hasattr(window, "title_next_btn")
     assert hasattr(window, "title_auto_rotate_btn")
-    assert hasattr(window, "title_folder_btn")
+    assert hasattr(window, "title_favorite_btn")
+    assert not hasattr(window, "title_folder_btn")
     assert window.titleBar.left_layout.indexOf(window.title_next_btn) >= 0
     assert window.titleBar.left_layout.indexOf(window.title_auto_rotate_btn) >= 0
-    assert window.titleBar.left_layout.indexOf(window.title_folder_btn) >= 0
+    assert window.titleBar.left_layout.indexOf(window.title_favorite_btn) >= 0
     assert window.titleBar.left_layout.indexOf(window.menu_bar) < window.titleBar.left_layout.indexOf(window.title_next_btn)
+    assert not window.title_favorite_btn.isEnabled()
+    assert window.title_favorite_btn.toolTip() == "暂无可收藏的当前壁纸"
 
     # Test trigger next wallpaper
     triggered = []
@@ -324,14 +329,58 @@ def test_title_bar_tool_buttons(monkeypatch) -> None:
     assert not window.title_auto_rotate_btn.isChecked()
     assert "开启" in window.title_auto_rotate_btn.toolTip()
 
-    # Test open download dir
-    opened = []
+    window.hide()
+
+
+def test_title_bar_favorite_button_toggles_current_wallpaper(monkeypatch) -> None:
+    get_qapp()
+    item = {"id": "42", "title": "银河", "url": "https://example.com/42.jpg"}
+    state = {"favorited": False}
+    added = []
+    removed = []
+    notices = []
+
+    monkeypatch.setitem(config._config, "last_wallpaper", item)
     monkeypatch.setattr(
-        "app.ui.main_window.MainWindow._open_download_dir",
-        lambda _self: opened.append(True),
+        "app.ui.main_window.GalleryPage.load_page", lambda _self, _page: None
     )
-    window.title_folder_btn.click()
-    assert len(opened) == 1
+    monkeypatch.setattr(
+        "app.ui.main_window.db.is_favorite", lambda _wid, _url: state["favorited"]
+    )
+    monkeypatch.setattr(
+        "app.ui.main_window.db.add_favorite",
+        lambda value: added.append(value) or state.update(favorited=True) or True,
+    )
+    monkeypatch.setattr(
+        "app.ui.main_window.db.remove_favorite",
+        lambda wid, url: removed.append((wid, url)) or state.update(favorited=False) or True,
+    )
+
+    class LightweightMainWindow(MainWindow):
+        def _init_tray(self) -> None:
+            pass
+
+    window = LightweightMainWindow()
+    monkeypatch.setattr(
+        window.notification,
+        "show_success",
+        lambda title, body: notices.append((title, body)),
+    )
+    assert window.title_favorite_btn.isEnabled()
+    assert not window.title_favorite_btn.isChecked()
+    assert window.title_favorite_btn.toolTip() == "收藏当前壁纸"
+
+    window.title_favorite_btn.click()
+    assert added == [item]
+    assert window.title_favorite_btn.isChecked()
+    assert window.title_favorite_btn.toolTip() == "取消收藏当前壁纸"
+    assert notices[-1] == ("已加入收藏夹", "银河")
+
+    window.title_favorite_btn.click()
+    assert removed == [("42", "https://example.com/42.jpg")]
+    assert not window.title_favorite_btn.isChecked()
+    assert window.title_favorite_btn.toolTip() == "收藏当前壁纸"
+    assert notices[-1] == ("已取消收藏", "银河")
 
     window.hide()
 

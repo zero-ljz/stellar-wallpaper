@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ctypes
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -20,6 +19,7 @@ from pyside6_modern_widgets import (
 
 from ..config import config
 from ..constants import APP_NAME, APP_VERSION
+from ..core.database import db
 from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
 from .components.message_box import open_directory
@@ -229,12 +229,12 @@ class MainWindow(ModernWindow):
         self._sync_auto_rotation_btn_state(scheduler.is_running)
         self.title_auto_rotate_btn.clicked.connect(self._toggle_auto_rotation)
 
-        self.title_folder_btn = QPushButton(self)
-        self.title_folder_btn.setObjectName("TitleBarFolderBtn")
-        self.title_folder_btn.setIcon(create_icon("folder", "#475569", size=15))
-        self.title_folder_btn.setToolTip("打开壁纸保存目录")
-        self.title_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.title_folder_btn.clicked.connect(self._open_download_dir)
+        self.title_favorite_btn = QPushButton(self)
+        self.title_favorite_btn.setObjectName("TitleBarFavoriteBtn")
+        self.title_favorite_btn.setCheckable(True)
+        self.title_favorite_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.title_favorite_btn.clicked.connect(self._toggle_current_favorite)
+        self._sync_current_favorite_btn_state()
 
         # Global search box
         self.title_search_box = TitleBarSearchBox(self)
@@ -246,7 +246,7 @@ class MainWindow(ModernWindow):
         if self.titleBar is not None:
             self.titleBar.addCustomWidget(self.title_next_btn, align="left")
             self.titleBar.addCustomWidget(self.title_auto_rotate_btn, align="left")
-            self.titleBar.addCustomWidget(self.title_folder_btn, align="left")
+            self.titleBar.addCustomWidget(self.title_favorite_btn, align="left")
             self.titleBar.addCustomWidget(self.title_search_box, align="right")
 
         self.search_shortcut = QShortcut(QKeySequence.StandardKey.Find, self)
@@ -268,6 +268,44 @@ class MainWindow(ModernWindow):
         else:
             self.title_auto_rotate_btn.setIcon(create_icon("play", "#475569", size=15))
             self.title_auto_rotate_btn.setToolTip("开启自动轮播")
+
+    def _sync_current_favorite_btn_state(self) -> None:
+        if not hasattr(self, "title_favorite_btn"):
+            return
+
+        item = config.last_wallpaper
+        if not item:
+            self.title_favorite_btn.setChecked(False)
+            self.title_favorite_btn.setEnabled(False)
+            self.title_favorite_btn.setIcon(create_icon("star", "#94A3B8", size=15))
+            self.title_favorite_btn.setToolTip("暂无可收藏的当前壁纸")
+            return
+
+        wid = str(item.get("id") or item.get("wallpaper_id") or "")
+        url = str(item.get("url") or item.get("url_mid") or item.get("thumb_url") or "")
+        is_favorite = db.is_favorite(wid, url)
+        self.title_favorite_btn.setEnabled(True)
+        self.title_favorite_btn.setChecked(is_favorite)
+        self.title_favorite_btn.setIcon(
+            create_icon("star_filled" if is_favorite else "star", "#F59E0B" if is_favorite else "#475569", size=15)
+        )
+        self.title_favorite_btn.setToolTip("取消收藏当前壁纸" if is_favorite else "收藏当前壁纸")
+
+    def _toggle_current_favorite(self) -> None:
+        item = config.last_wallpaper
+        if not item:
+            self._sync_current_favorite_btn_state()
+            return
+
+        wid = str(item.get("id") or item.get("wallpaper_id") or "")
+        url = str(item.get("url") or item.get("url_mid") or item.get("thumb_url") or "")
+        if db.is_favorite(wid, url):
+            db.remove_favorite(wid, url)
+            self.notification.show_success("已取消收藏", item.get("title", "当前壁纸"))
+        else:
+            db.add_favorite(item)
+            self.notification.show_success("已加入收藏夹", item.get("title", "当前壁纸"))
+        self._sync_current_favorite_btn_state()
 
     def _focus_search_box(self) -> None:
         self.title_search_box.setFocus()
@@ -304,6 +342,7 @@ class MainWindow(ModernWindow):
 
         # Connect history auto-refresh on wallpaper applied
         scheduler.wallpaper_applied.connect(lambda _: self.history_page.refresh())
+        scheduler.wallpaper_applied.connect(lambda _: self._sync_current_favorite_btn_state())
 
         # Start auto-rotation scheduler if enabled
         scheduler.status_changed.connect(self.auto_rotation_action.setChecked)
