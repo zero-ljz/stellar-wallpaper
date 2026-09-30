@@ -34,13 +34,16 @@ def test_config_persistence():
         cfg = ConfigManager(Path(tmpdir))
         assert cfg.auto_switch_enabled is False
         assert cfg.wallpaper_style == "fill"
+        assert cfg.next_wallpaper_hotkey == "Ctrl+Alt+N"
 
         cfg.auto_switch_enabled = True
         cfg.wallpaper_style = "fit"
         cfg.selected_categories = ["36", "9"]
+        cfg.next_wallpaper_hotkey = "Ctrl+Shift+F12"
 
         # Reload from disk
         cfg2 = ConfigManager(Path(tmpdir))
         assert cfg2.auto_switch_enabled is True
         assert cfg2.wallpaper_style == "fit"
         assert cfg2.selected_categories == ["36", "9"]
+        assert cfg2.next_wallpaper_hotkey == "Ctrl+Shift+F12"

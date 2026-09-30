@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QKeySequenceEdit,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -23,10 +22,16 @@ from PySide6.QtWidgets import (
 )
 
 from ...config import config
-from ...constants import APP_NAME, APP_VERSION, WALLPAPER_STYLES
+from ...constants import (
+    APP_NAME,
+    APP_VERSION,
+    DEFAULT_NEXT_WALLPAPER_HOTKEY,
+    WALLPAPER_STYLES,
+)
 from ...core.cache_manager import cache_mgr
+from ...core.global_hotkey import parse_hotkey
 from ...core.wallpaper_setter import wallpaper_setter
-from ..components.message_box import open_directory, show_info, show_question, show_success
+from ..components.message_box import open_directory, show_question, show_success
 from ..components.switch_toggle import SwitchToggle
 from ..icons import create_fluent_pixmap, create_icon
 
@@ -129,6 +134,8 @@ class SettingRowCard(QFrame):
 
 class SettingsPage(QWidget):
     """Application settings page with Windows 11 Fluent layout."""
+
+    shortcut_change_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -299,6 +306,30 @@ class SettingsPage(QWidget):
         row3 = SettingRowCard("bell", "桌面悬浮通知消息", "更换壁纸时在屏幕右下角弹出精美的实时进度与完成气泡", self.notify_switch, container)
         sys_vbox.addWidget(row3)
 
+        hotkey_actions = QWidget(container)
+        hotkey_layout = QHBoxLayout(hotkey_actions)
+        hotkey_layout.setContentsMargins(0, 0, 0, 0)
+        hotkey_layout.setSpacing(8)
+        self.next_hotkey_edit = QKeySequenceEdit(hotkey_actions)
+        self.next_hotkey_edit.setMaximumSequenceLength(1)
+        self.next_hotkey_edit.setFixedSize(145, 34)
+        self.next_hotkey_edit.editingFinished.connect(self._on_hotkey_edited)
+        hotkey_layout.addWidget(self.next_hotkey_edit)
+        self.reset_hotkey_btn = QPushButton(hotkey_actions)
+        self.reset_hotkey_btn.setIcon(create_icon("reset", color="#475569", size=16))
+        self.reset_hotkey_btn.setToolTip("恢复默认快捷键")
+        self.reset_hotkey_btn.setFixedSize(34, 34)
+        self.reset_hotkey_btn.clicked.connect(
+            lambda: self.shortcut_change_requested.emit(DEFAULT_NEXT_WALLPAPER_HOTKEY)
+        )
+        hotkey_layout.addWidget(self.reset_hotkey_btn)
+        hotkey_row = SettingRowCard("next", "切换下一张壁纸", "在任何窗口下使用的全局快捷键", hotkey_actions, container)
+        sys_vbox.addWidget(hotkey_row)
+        self.hotkey_status = QLabel("", container)
+        self.hotkey_status.setStyleSheet("color: #B42318; font-size: 12px; border: none; background: transparent;")
+        self.hotkey_status.hide()
+        sys_vbox.addWidget(self.hotkey_status)
+
         layout.addLayout(sys_vbox)
 
         # 5. About Card
@@ -365,6 +396,21 @@ class SettingsPage(QWidget):
     def _load_values(self) -> None:
         self.path_input.setText(config.download_dir)
         self.cache_size_lbl.setText(f"已占用缓存: {cache_mgr.get_cache_size_mb_str()}")
+        self.next_hotkey_edit.setKeySequence(QKeySequence(config.next_wallpaper_hotkey))
+
+    def _on_hotkey_edited(self) -> None:
+        shortcut = self.next_hotkey_edit.keySequence().toString(QKeySequence.SequenceFormat.PortableText)
+        try:
+            parse_hotkey(shortcut)
+        except ValueError as exc:
+            self.set_hotkey_result(config.next_wallpaper_hotkey, str(exc))
+            return
+        self.shortcut_change_requested.emit(shortcut)
+
+    def set_hotkey_result(self, shortcut: str, error: str = "") -> None:
+        self.next_hotkey_edit.setKeySequence(QKeySequence(shortcut))
+        self.hotkey_status.setText(error)
+        self.hotkey_status.setVisible(bool(error))
 
     def _on_style_selected(self, checked: bool, style_key: str) -> None:
         if checked:

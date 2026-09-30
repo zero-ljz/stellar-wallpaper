@@ -10,6 +10,7 @@ from .constants import (
     CATEGORIES,
     DEFAULT_APP_DATA_DIR,
     DEFAULT_DOWNLOAD_DIR,
+    DEFAULT_NEXT_WALLPAPER_HOTKEY,
 )
 
 
@@ -28,6 +29,7 @@ class ConfigManager:
         "close_to_tray": True,
         "tray_notifications": True,
         "start_with_windows": False,
+        "next_wallpaper_hotkey": DEFAULT_NEXT_WALLPAPER_HOTKEY,
         "max_cache_mb": 500,
         "last_wallpaper": None,  # dict of metadata
     }
@@ -149,6 +151,14 @@ class ConfigManager:
     @start_with_windows.setter
     def start_with_windows(self, value: bool) -> None:
         self.set("start_with_windows", value)
+
+    @property
+    def next_wallpaper_hotkey(self) -> str:
+        return str(self.get("next_wallpaper_hotkey", DEFAULT_NEXT_WALLPAPER_HOTKEY))
+
+    @next_wallpaper_hotkey.setter
+    def next_wallpaper_hotkey(self, value: str) -> None:
+        self.set("next_wallpaper_hotkey", value)
 
     @property
     def last_wallpaper(self) -> dict[str, Any] | None:

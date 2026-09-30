@@ -20,6 +20,7 @@ from pyside6_modern_widgets import (
 from ..config import config
 from ..constants import APP_NAME, APP_VERSION
 from ..core.database import db
+from ..core.global_hotkey import GlobalHotkey, parse_hotkey
 from ..core.scheduler import scheduler
 from .components.desktop_notification import get_desktop_notification
 from .components.message_box import open_directory
@@ -352,9 +353,31 @@ class MainWindow(ModernWindow):
         scheduler.status_changed.connect(self._sync_auto_rotation_btn_state)
         scheduler.start_if_enabled()
 
+        self.global_hotkey = GlobalHotkey(self, self._trigger_next_wallpaper)
+        self.settings_page.shortcut_change_requested.connect(self._set_next_wallpaper_hotkey)
+        try:
+            if not self.global_hotkey.set_shortcut(config.next_wallpaper_hotkey):
+                self.settings_page.set_hotkey_result(config.next_wallpaper_hotkey, "快捷键已被其他程序占用，请重新设置")
+        except ValueError:
+            self.settings_page.set_hotkey_result(config.next_wallpaper_hotkey, "保存的快捷键无效，请重新设置")
+
         app_instance = QApplication.instance()
         if app_instance is not None:
             app_instance.aboutToQuit.connect(scheduler.shutdown)
+            app_instance.aboutToQuit.connect(self.global_hotkey.close)
+
+    def _set_next_wallpaper_hotkey(self, shortcut: str) -> None:
+        try:
+            parse_hotkey(shortcut)
+            registered = self.global_hotkey.set_shortcut(shortcut)
+        except ValueError as exc:
+            self.settings_page.set_hotkey_result(config.next_wallpaper_hotkey, str(exc))
+            return
+        if registered:
+            config.next_wallpaper_hotkey = shortcut
+            self.settings_page.set_hotkey_result(shortcut)
+        else:
+            self.settings_page.set_hotkey_result(config.next_wallpaper_hotkey, "快捷键已被其他程序占用，请选择其他组合")
 
     def _select_navigation_page(self, index: int) -> None:
         self.nav_view.setCurrentIndex(index)
