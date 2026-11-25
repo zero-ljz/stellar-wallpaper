@@ -114,8 +114,20 @@ uv run python build.py --onefile
 
 打包完成后，生成的单文件可执行程序 `StellarWallpaper.exe` 将输出在 `dist/` 目录下。
 
+打包时会从应用文案、组件库翻译和可打印 ASCII 自动生成霞鹜文楷 Lite 字体子集。壁纸标题、文件名和输入内容中超出子集的字符由 Qt 回退到系统字体。
+
+### 6. 打包 7z 便携版
+
+Windows 上安装 7-Zip 后可生成体积更小的 `dist/StellarWallpaper.7z`。使用时先解压整个目录，再双击其中的 `StellarWallpaper.exe`。
+
+```bash
+uv run python build.py --archive
+```
+
 ---
 
 ## 📄 开源许可
 
 本项目遵循 MIT 开源许可证。源码地址：[https://github.com/zero-ljz/stellar-wallpaper](https://github.com/zero-ljz/stellar-wallpaper)
+
+霞鹜文楷 Lite 及其字体子集采用 [SIL Open Font License 1.1](app/resources/fonts/OFL-LXGWWenKaiLite.txt)。

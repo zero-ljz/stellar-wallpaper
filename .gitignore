@@ -11,6 +11,7 @@ wheels/
 
 # PyInstaller
 *.spec
+!packaging/stellar_wallpaper.spec
 
 # Pytest / Cache
 .pytest_cache/
