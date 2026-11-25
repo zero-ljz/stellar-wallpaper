@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -115,6 +116,7 @@ class HistoryPage(QWidget):
         self.container = QWidget(self.scroll)
         self.container.setStyleSheet("background: transparent; border: none;")
         self.grid = QGridLayout(self.container)
+        self.grid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.grid.setContentsMargins(0, 4, 0, 4)
         self.grid.setSpacing(16)
         self.grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)

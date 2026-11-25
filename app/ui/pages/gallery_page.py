@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QProgressBar,
     QPushButton,
@@ -385,6 +386,8 @@ class GalleryPage(QWidget):
         self.grid_container = QWidget(self.grid_scroll)
         self.grid_container.setStyleSheet("background: transparent; border: none;")
         self.grid_layout = QGridLayout(self.grid_container)
+        # Grow the scroll content as soon as the grid needs room for new rows.
+        self.grid_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         self.grid_layout.setContentsMargins(0, 4, 0, 4)
         self.grid_layout.setSpacing(16)
         self.grid_layout.setAlignment(

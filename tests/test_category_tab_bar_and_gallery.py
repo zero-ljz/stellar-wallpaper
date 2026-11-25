@@ -1,6 +1,7 @@
 """Tests for CategoryTabBar, GalleryPage, FavoritesPage, and HistoryPage responsiveness."""
 
 import sys
+from itertools import pairwise
 
 from PySide6.QtWidgets import QApplication
 
@@ -73,6 +74,35 @@ def test_gallery_page_column_calculation():
     cols_1800 = page._calculate_cols()
     assert cols_1800 == 6
     assert cols_1800 > cols_1200 > cols_600
+
+
+def test_gallery_grid_keeps_card_rows_separate_when_results_arrive(monkeypatch):
+    app = get_qapp()
+    monkeypatch.setattr(
+        "app.ui.components.wallpaper_card.WallpaperCard._load_thumbnail",
+        lambda _self: None,
+    )
+    page = GalleryPage(auto_load=False)
+    page.resize(1010, 800)
+    page.show()
+    try:
+        app.processEvents()
+        items = [{"id": str(index)} for index in range(24)]
+        page._on_page_loaded({"items": items})
+        app.processEvents()
+
+        first_column = page._cards[::page._current_cols]
+        row_spacing = page.grid_layout.verticalSpacing()
+        for upper, lower in pairwise(first_column):
+            assert lower.y() - upper.y() >= upper.height() + row_spacing
+
+        scrollbar = page.grid_scroll.verticalScrollBar()
+        assert scrollbar.maximum() > 0
+        viewport_height = page.grid_scroll.viewport().height()
+        last_row_bottom = first_column[-1].geometry().bottom()
+        assert last_row_bottom < scrollbar.maximum() + viewport_height
+    finally:
+        page.close()
 
 
 def test_gallery_batch_selection_is_preserved_across_pages(monkeypatch):
