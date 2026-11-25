@@ -23,9 +23,18 @@ class ImageLoader(QObject):
         super().__init__(parent)
         self.pool = QThreadPool.globalInstance()
         self.pool.setMaxThreadCount(max_threads)
+        self._stopping = threading.Event()
         self._lock = threading.Lock()
         self._callbacks: dict[str, list[Callable[[QPixmap], None]]] = {}
         self._internal_image_ready.connect(self._handle_internal_image_ready)
+
+    def shutdown(self) -> None:
+        """Stop queued loads and let running tasks unwind before Qt is destroyed."""
+        self._stopping.set()
+        self.pool.clear()
+        self.pool.waitForDone()
+        with self._lock:
+            self._callbacks.clear()
 
     def load_thumbnail(
         self,
@@ -75,7 +84,9 @@ class ImageLoader(QObject):
                                 return
 
                         # 3. Download to cache
-                        ok = api_client.download_image(self.u, cached)
+                        ok = api_client.download_image(
+                            self.u, cached, cancel_check=emitter._stopping.is_set
+                        )
                         if ok and cached.exists():
                             img = QImage(str(cached))
                             if not img.isNull():
@@ -137,7 +148,9 @@ class ImageLoader(QObject):
                                 emitter._internal_image_ready.emit(self.k, img)
                                 return
 
-                        ok = api_client.download_image(self.u, cached)
+                        ok = api_client.download_image(
+                            self.u, cached, cancel_check=emitter._stopping.is_set
+                        )
                         if ok and cached.exists():
                             img = QImage(str(cached))
                             if not img.isNull():

@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QTimer
 from pyside6_modern_widgets.i18n import load_translator
 
 from app.constants import APP_ID, APP_NAME
+from app.core.image_loader import image_loader
 from app.core.single_instance import SingleInstance
 from app.ui.application import WallpaperApplication
 from app.ui.main_window import MainWindow
@@ -42,6 +43,7 @@ def main() -> int:
         QTimer.singleShot(0, window._show_and_activate)
 
     result = app.exec()
+    image_loader.shutdown()
     single_instance.close()
     return result
 
