@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QRect, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLayout, QPushButton, QWidget
 from pyside6_modern_widgets import (
@@ -23,6 +23,7 @@ from ..constants import APP_NAME, APP_VERSION
 from ..core.database import db
 from ..core.global_hotkey import GlobalHotkey, parse_hotkey
 from ..core.scheduler import scheduler
+from .application import WallpaperApplication
 from .components.desktop_notification import get_desktop_notification
 from .components.message_box import open_directory
 from .components.title_search_box import TitleBarSearchBox
@@ -469,7 +470,10 @@ class MainWindow(ModernWindow):
         force_window_light_mode(int(self.winId()))
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if getattr(self, "_is_quitting", False):
+        app = QApplication.instance()
+        if getattr(self, "_is_quitting", False) or (
+            isinstance(app, WallpaperApplication) and app.handling_quit
+        ):
             event.accept()
             return
 
@@ -484,4 +488,4 @@ class MainWindow(ModernWindow):
                 self.tray_icon.hide()
             scheduler.shutdown()
             event.accept()
-            QApplication.quit()
+            QTimer.singleShot(0, QApplication.quit)

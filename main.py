@@ -3,22 +3,22 @@
 import sys
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QApplication
 from pyside6_modern_widgets.i18n import load_translator
 
 from app.constants import APP_ID, APP_NAME
 from app.core.single_instance import SingleInstance
+from app.ui.application import WallpaperApplication
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_fusion_light_theme
 
 
 def main() -> int:
     # Enable High DPI scaling and crisp pixmaps
-    QApplication.setHighDpiScaleFactorRoundingPolicy(
+    WallpaperApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
-    app = QApplication(sys.argv)
+    app = WallpaperApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setQuitOnLastWindowClosed(False)  # keep running in tray
 
