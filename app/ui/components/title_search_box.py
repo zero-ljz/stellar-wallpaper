@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QLineEdit, QWidget
 
 from ..icons import create_icon
@@ -16,8 +17,9 @@ class TitleBarSearchBox(QLineEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("TitleBarSearchBox")
-        self.setPlaceholderText("搜索壁纸 (Ctrl+F)...")
-        self.setToolTip("搜索超高清壁纸（回车键搜索，快捷键 Ctrl+F）")
+        shortcut = QKeySequence(QKeySequence.StandardKey.Find).toString(QKeySequence.SequenceFormat.NativeText)
+        self.setPlaceholderText(f"搜索壁纸 ({shortcut})...")
+        self.setToolTip(f"搜索超高清壁纸（回车键搜索，快捷键 {shortcut}）")
         self.setFixedSize(170, 28)
 
         # Leading search action with Fluent search icon

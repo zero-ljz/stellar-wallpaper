@@ -66,7 +66,7 @@ def package_macos_dmg(app: Path, output: Path) -> None:
         subprocess.run(
             [
                 "/usr/bin/hdiutil", "create", "-srcfolder", str(image_dir),
-                "-volname", app.stem, "-fs", "HFS+", "-format", "UDZO", str(staged_dmg),
+                "-volname", app.stem, "-fs", "HFS+", "-format", "ULMO", str(staged_dmg),
             ],
             check=True,
         )

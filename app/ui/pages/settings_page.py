@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl, Signal
@@ -26,6 +27,7 @@ from ...constants import (
     APP_NAME,
     APP_VERSION,
     DEFAULT_NEXT_WALLPAPER_HOTKEY,
+    MACOS_MIN_VERSION,
     WALLPAPER_STYLES,
 )
 from ...core.cache_manager import cache_mgr
@@ -143,6 +145,7 @@ class SettingsPage(QWidget):
         self._load_values()
 
     def _init_ui(self) -> None:
+        is_macos = sys.platform == "darwin"
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -163,7 +166,7 @@ class SettingsPage(QWidget):
         title_lbl.setStyleSheet("border: none; background: transparent; color: #0F172A;")
         title_box.addWidget(title_lbl)
 
-        desc_lbl = QLabel("个性化配置壁纸呈现样式、文件保存位置、缓存清理与 Windows 系统深度集成", container)
+        desc_lbl = QLabel("管理壁纸保存目录、本地缓存和系统集成选项", container)
         desc_lbl.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px; border: none; background: transparent;")
         title_box.addWidget(desc_lbl)
         layout.addLayout(title_box)
@@ -203,6 +206,7 @@ class SettingsPage(QWidget):
 
         sc_layout.addLayout(style_grid)
         layout.addWidget(style_card)
+        style_card.setVisible(not is_macos)
 
         # 2. Download Directory Card
         dl_card = QFrame(container)
@@ -289,14 +293,16 @@ class SettingsPage(QWidget):
         self.startup_switch = SwitchToggle(container)
         self.startup_switch.setChecked(wallpaper_setter.is_startup_enabled() or config.start_with_windows)
         self.startup_switch.toggled.connect(self._on_startup_toggled)
-        row1 = SettingRowCard("power", "开机自动启动", "随系统开机在后台静默启动运行", self.startup_switch, container)
+        startup_title = "登录时自动启动" if is_macos else "开机自动启动"
+        startup_description = "登录 macOS 后自动运行" if is_macos else "随系统开机在后台静默启动运行"
+        row1 = SettingRowCard("power", startup_title, startup_description, self.startup_switch, container)
         sys_vbox.addWidget(row1)
 
         # Switch 2: Close to Tray
         self.close_switch = SwitchToggle(container)
         self.close_switch.setChecked(config.close_to_tray)
         self.close_switch.toggled.connect(lambda chk: config.set("close_to_tray", chk))
-        row2 = SettingRowCard("desktop", "关闭时最小化到托盘", "点击窗口右上角关闭按钮时，保持后台运行而不退出软件", self.close_switch, container)
+        row2 = SettingRowCard("desktop", "关闭时最小化到托盘", "关闭窗口后继续在后台运行", self.close_switch, container)
         sys_vbox.addWidget(row2)
 
         # Switch 3: Tray Notification
@@ -323,7 +329,9 @@ class SettingsPage(QWidget):
             lambda: self.shortcut_change_requested.emit(DEFAULT_NEXT_WALLPAPER_HOTKEY)
         )
         hotkey_layout.addWidget(self.reset_hotkey_btn)
-        hotkey_row = SettingRowCard("next", "切换下一张壁纸", "在任何窗口下使用的全局快捷键", hotkey_actions, container)
+        hotkey_description = "全局快捷键仅在 Windows 上可用" if is_macos else "在任何窗口下使用的全局快捷键"
+        hotkey_row = SettingRowCard("next", "切换下一张壁纸", hotkey_description, hotkey_actions, container)
+        hotkey_actions.setEnabled(not is_macos)
         sys_vbox.addWidget(hotkey_row)
         self.hotkey_status = QLabel("", container)
         self.hotkey_status.setStyleSheet("color: #B42318; font-size: 12px; border: none; background: transparent;")
@@ -350,6 +358,7 @@ class SettingsPage(QWidget):
 
         info_text = (
             f"• 软件名称: 星澜壁纸 (Stellar Wallpaper) v{APP_VERSION}<br>"
+            f"• 支持系统: Windows 10 / 11（64 位）和 macOS {MACOS_MIN_VERSION} 或更高版本<br>"
             "• 开源主页: <a href=\"https://github.com/zero-ljz/stellar-wallpaper\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">https://github.com/zero-ljz/stellar-wallpaper</a><br>"
             "• 界面组件库: <a href=\"https://pypi.org/project/pyside6-modern-widgets\" style=\"color: #0078D4; text-decoration: none; font-weight: 600;\">pyside6-modern-widgets</a><br>"
             "• 界面字体: 霞鹜文楷 Lite 精简版常规体 (LXGW WenKai Lite Regular)<br>"

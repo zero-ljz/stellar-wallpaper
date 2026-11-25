@@ -88,7 +88,7 @@ class HistoryPage(QWidget):
 
         self.open_folder_btn = QPushButton("打开壁纸目录", self)
         self.open_folder_btn.setIcon(create_icon("folder", color="#475569", size=16))
-        self.open_folder_btn.setToolTip("在文件资源管理器中打开历史壁纸缓存文件夹")
+        self.open_folder_btn.setToolTip("打开历史壁纸缓存文件夹")
         self.open_folder_btn.setFixedHeight(36)
         self.open_folder_btn.clicked.connect(self._open_folder)
         header.addWidget(self.open_folder_btn)

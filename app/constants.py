@@ -7,6 +7,7 @@ from pathlib import Path
 APP_NAME = "星澜壁纸"
 APP_ID = "com.stellar.wallpaper"
 APP_VERSION = "1.2.3"
+MACOS_MIN_VERSION = "12.0"
 DEFAULT_NEXT_WALLPAPER_HOTKEY = "Ctrl+Alt+N"
 
 

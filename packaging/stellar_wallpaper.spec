@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.constants import APP_ID, APP_VERSION
+from app.constants import APP_ID, APP_VERSION, MACOS_MIN_VERSION
 from tools.build_ui_font import build_ui_font
 
 parser = argparse.ArgumentParser()
@@ -40,7 +40,8 @@ datas = [
 analysis = Analysis(
     [str(project_root / "main.py")],
     datas=datas,
-    hookspath=[str(packaging_dir / "hooks")] if is_windows else [],
+    hookspath=[str(packaging_dir / "hooks")] if is_windows or is_macos else [],
+    runtime_hooks=[str(packaging_dir / "hooks" / "rthook_macos_ssl.py")] if is_macos else [],
     excludes=[
         # Modern Widgets uses ThreadPoolExecutor. The app never starts a process pool
         # or uses SQLite's command-line entry point.
@@ -100,5 +101,8 @@ else:
 if is_macos:
     BUNDLE(
         bundle, name=f"{name}.app", icon=icon, bundle_identifier=APP_ID, version=APP_VERSION,
-        info_plist={"NSAppleEventsUsageDescription": "星澜壁纸需要通过系统事件来更换桌面壁纸。"},
+        info_plist={
+            "LSMinimumSystemVersion": MACOS_MIN_VERSION,
+            "NSAppleEventsUsageDescription": "星澜壁纸需要通过系统事件来更换桌面壁纸。",
+        },
     )
