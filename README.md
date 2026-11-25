@@ -7,14 +7,14 @@
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%206.8.3-green.svg)](https://wiki.qt.io/Qt_for_Python)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20macOS%2012%2B-0078D4.svg)](#环境要求)
-[![Download](https://img.shields.io/badge/download-latest%20release-0078D4.svg?logo=github)](https://github.com/zero-ljz/stellar-wallpaper/releases/latest)
 
 ---
 
 ## 📥 下载
 
-- **Windows** 可下载单文件版 [StellarWallpaper.exe](https://github.com/zero-ljz/stellar-wallpaper/releases/latest/download/StellarWallpaper.exe)。
-- **macOS** 使用同时支持 Apple Silicon 和 Intel 的 Universal 2 DMG。目前 GitHub Release 提供 Windows 版，macOS 版可按下文从源码打包。
+[![下载最新版](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD%E6%9C%80%E6%96%B0%E7%89%88-0078D4?style=for-the-badge&logo=github&logoColor=white)](https://github.com/zero-ljz/stellar-wallpaper/releases/latest)
+
+在 Release 页面的 **Assets**（附件）中选择适合自己系统的安装包。
 
 ---
 
