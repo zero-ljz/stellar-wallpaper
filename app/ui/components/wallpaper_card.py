@@ -41,6 +41,9 @@ def extract_item_ids(item_data: dict[str, Any]) -> tuple[str, str]:
 class WallpaperCard(QFrame):
     """Card widget representing a single wallpaper with async thumbnail and hover actions."""
 
+    WIDTH = 264
+    HEIGHT = 196
+
     apply_requested = Signal(dict)
     preview_requested = Signal(dict)
     favorite_toggled = Signal(dict, bool)
@@ -51,7 +54,7 @@ class WallpaperCard(QFrame):
     ) -> None:
         super().__init__(parent)
         self.item_data = dict(item_data)
-        self.setFixedSize(264, 196)
+        self.setFixedSize(self.WIDTH, self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("WallpaperCard")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)

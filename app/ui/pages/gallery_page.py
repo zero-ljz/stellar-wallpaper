@@ -9,15 +9,11 @@ from typing import Any
 from PySide6.QtCore import QObject, Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
-    QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLayout,
     QLineEdit,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -33,6 +29,7 @@ from ..components.category_tab_bar import CategoryTabBar
 from ..components.message_box import show_batch_download_result
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard, extract_item_ids
+from ..components.wallpaper_grid import WallpaperGrid
 from ..icons import create_icon
 
 
@@ -106,9 +103,6 @@ class GalleryPage(QWidget):
         self._batch_result: tuple[int, int, int, bool] | None = None
         self._batch_selection_mode = False
         self._selected_items: dict[str, dict[str, Any]] = {}
-
-        self._cards: list[WallpaperCard] = []
-        self._current_cols = 0
 
         self._init_ui()
         if auto_load:
@@ -376,24 +370,7 @@ class GalleryPage(QWidget):
         layout.addWidget(self.batch_bar)
 
         # 3. Wallpapers Responsive Grid View
-        self.grid_scroll = QScrollArea(self)
-        self.grid_scroll.setWidgetResizable(True)
-        self.grid_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.grid_scroll.setStyleSheet("background: transparent; border: none;")
-        self.grid_scroll.viewport().setStyleSheet(
-            "background: transparent; border: none;"
-        )
-        self.grid_container = QWidget(self.grid_scroll)
-        self.grid_container.setStyleSheet("background: transparent; border: none;")
-        self.grid_layout = QGridLayout(self.grid_container)
-        # Grow the scroll content as soon as the grid needs room for new rows.
-        self.grid_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        self.grid_layout.setContentsMargins(0, 4, 0, 4)
-        self.grid_layout.setSpacing(16)
-        self.grid_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.grid_scroll.setWidget(self.grid_container)
+        self.grid_scroll = WallpaperGrid(self)
         layout.addWidget(self.grid_scroll, 1)
 
         # Loading / Status label
@@ -449,38 +426,6 @@ class GalleryPage(QWidget):
 
         page_bar.addStretch()
         layout.addLayout(page_bar)
-
-    def _calculate_cols(self) -> int:
-        """Calculate optimal column count dynamically based on viewport width."""
-        vp_width = self.grid_scroll.viewport().width()
-        scroll_w = self.grid_scroll.width()
-        page_w = self.width() - 48
-
-        width = (
-            vp_width
-            if (vp_width > 50 and abs(vp_width - scroll_w) <= 30)
-            else max(scroll_w, page_w, 300)
-        )
-        card_total_width = 264 + 16  # 264px card width + 16px grid horizontal spacing
-        cols = max(2, (width + 16) // card_total_width)
-        return cols
-
-    def _relayout_grid(self, force: bool = False) -> None:
-        """Dynamically reposition cards in grid without re-rendering or refetching."""
-        if not self._cards:
-            return
-        cols = self._calculate_cols()
-        if not force and cols == self._current_cols:
-            return
-        self._current_cols = cols
-
-        while self.grid_layout.count():
-            self.grid_layout.takeAt(0)
-
-        for index, card in enumerate(self._cards):
-            row = index // cols
-            col = index % cols
-            self.grid_layout.addWidget(card, row, col)
 
     def _on_category_selected(
         self, cat_id: str, cat_name: str = "", cat_desc: str = ""
@@ -556,7 +501,7 @@ class GalleryPage(QWidget):
         self._req_id += 1
         req_id = self._req_id
 
-        self._clear_grid()
+        self.grid_scroll.set_cards([])
         self.batch_mode_btn.setEnabled(False)
         self.status_label.setText("正在努力加载壁纸...")
         self.status_label.show()
@@ -587,16 +532,6 @@ class GalleryPage(QWidget):
         worker.finished.connect(worker.deleteLater)
         worker.start()
 
-    def _clear_grid(self) -> None:
-        for card in self._cards:
-            card.deleteLater()
-        self._cards.clear()
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._current_cols = 0
-
     def _on_page_loaded(self, data: dict[str, Any]) -> None:
         self.status_label.hide()
         if data.get("error"):
@@ -618,23 +553,24 @@ class GalleryPage(QWidget):
         self.jump_spinbox.setValue(self._current_page)
 
         if not items:
+            self.grid_scroll.set_cards([])
             self.status_label.setText("未找到相关壁纸，换个分类或关键词试试吧~")
             self.status_label.show()
             return
 
-        self._cards = []
+        cards = []
         for item_data in items:
-            card = WallpaperCard(item_data, self.grid_container)
+            card = WallpaperCard(item_data, self.grid_scroll.content)
             card.apply_requested.connect(self._on_card_apply)
             card.preview_requested.connect(self._on_card_preview)
             card.selection_changed.connect(self._on_card_selection_changed)
             card.set_selection_mode(self._batch_selection_mode)
             card.set_selected(wallpaper_download_key(item_data) in self._selected_items)
-            self._cards.append(card)
+            cards.append(card)
 
+        self.grid_scroll.set_cards(cards)
         self.batch_mode_btn.setEnabled(self._batch_worker is None)
         self._update_batch_controls()
-        self._relayout_grid(force=True)
 
     def _on_page_error(self, err: str) -> None:
         self.batch_mode_btn.setEnabled(False)
@@ -653,7 +589,7 @@ class GalleryPage(QWidget):
         self.batch_mode_btn.setIcon(
             create_icon("dismiss" if enabled else "download", color="#475569", size=16)
         )
-        for card in self._cards:
+        for card in self.grid_scroll.cards:
             card.set_selection_mode(enabled)
         if not enabled:
             self._clear_batch_selection()
@@ -668,11 +604,11 @@ class GalleryPage(QWidget):
         self._update_batch_controls()
 
     def _toggle_select_current_page(self) -> None:
-        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        page_keys = [wallpaper_download_key(card.item_data) for card in self.grid_scroll.cards]
         select = not page_keys or not all(
             key in self._selected_items for key in page_keys
         )
-        for card, key in zip(self._cards, page_keys, strict=True):
+        for card, key in zip(self.grid_scroll.cards, page_keys, strict=True):
             card.set_selected(select)
             if select:
                 self._selected_items[key] = dict(card.item_data)
@@ -682,7 +618,7 @@ class GalleryPage(QWidget):
 
     def _clear_batch_selection(self) -> None:
         self._selected_items.clear()
-        for card in self._cards:
+        for card in self.grid_scroll.cards:
             card.set_selected(False)
         self._update_batch_controls()
 
@@ -694,7 +630,7 @@ class GalleryPage(QWidget):
         )
         self.download_selected_btn.setEnabled(count > 0 and self._batch_worker is None)
         self.clear_selection_btn.setEnabled(count > 0 and self._batch_worker is None)
-        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        page_keys = [wallpaper_download_key(card.item_data) for card in self.grid_scroll.cards]
         all_page_selected = bool(page_keys) and all(
             key in self._selected_items for key in page_keys
         )
@@ -716,7 +652,7 @@ class GalleryPage(QWidget):
         worker.start()
 
     def _set_batch_busy(self, busy: bool, total: int = 0) -> None:
-        self.batch_mode_btn.setEnabled(not busy and bool(self._cards))
+        self.batch_mode_btn.setEnabled(not busy and bool(self.grid_scroll.cards))
         self.cat_tab_bar.setEnabled(not busy)
         self.search_input.setEnabled(not busy)
         self.search_btn.setEnabled(not busy)
@@ -728,7 +664,7 @@ class GalleryPage(QWidget):
         self.select_page_btn.setVisible(not busy)
         self.clear_selection_btn.setVisible(not busy)
         self.download_selected_btn.setVisible(not busy)
-        for card in self._cards:
+        for card in self.grid_scroll.cards:
             card.selection_checkbox.setEnabled(not busy)
 
         self.batch_progress.setVisible(busy)
@@ -787,17 +723,9 @@ class GalleryPage(QWidget):
         dialog.apply_requested.connect(self.apply_wallpaper_requested.emit)
         dialog.exec()
         # Update cards favorite status if changed inside preview dialog
-        for card in self._cards:
+        for card in self.grid_scroll.cards:
             wid, url = extract_item_ids(card.item_data)
             fav = db.is_favorite(wid, url)
             if card._is_favorited != fav:
                 card._is_favorited = fav
                 card._update_fav_style()
-
-    def resizeEvent(self, event) -> None:  # noqa: N802
-        super().resizeEvent(event)
-        self._relayout_grid()
-
-    def showEvent(self, event) -> None:  # noqa: N802
-        super().showEvent(event)
-        self._relayout_grid()

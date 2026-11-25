@@ -10,13 +10,10 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLayout,
     QProgressBar,
     QPushButton,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -29,6 +26,7 @@ from ..batch_download import BatchDownloadWorker
 from ..components.message_box import open_directory, show_batch_download_result, show_info
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard
+from ..components.wallpaper_grid import WallpaperGrid
 from ..icons import create_fluent_pixmap, create_icon
 
 
@@ -39,8 +37,6 @@ class FavoritesPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._cards: list[WallpaperCard] = []
-        self._current_cols = 0
         self._page_size = 24
         self._current_page = 1
         self._total_count = 0
@@ -189,21 +185,7 @@ class FavoritesPage(QWidget):
         layout.addWidget(self.batch_bar)
 
         # Grid Scroll Area
-        self.scroll = QScrollArea(self)
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setStyleSheet("background: transparent; border: none;")
-        self.scroll.viewport().setStyleSheet("background: transparent; border: none;")
-        self.container = QWidget(self.scroll)
-        self.container.setStyleSheet("background: transparent; border: none;")
-        self.grid = QGridLayout(self.container)
-        self.grid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        self.grid.setContentsMargins(0, 4, 0, 4)
-        self.grid.setSpacing(16)
-        self.grid.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter
-        )
-        self.scroll.setWidget(self.container)
+        self.scroll = WallpaperGrid(self)
         layout.addWidget(self.scroll, 1)
 
         # Empty state card
@@ -296,50 +278,12 @@ class FavoritesPage(QWidget):
         page_bar.addStretch()
         layout.addWidget(self.page_bar_widget)
 
-    def _calculate_cols(self) -> int:
-        vp_width = self.scroll.viewport().width()
-        scroll_w = self.scroll.width()
-        page_w = self.width() - 48
-
-        width = (
-            vp_width
-            if (vp_width > 50 and abs(vp_width - scroll_w) <= 30)
-            else max(scroll_w, page_w, 300)
-        )
-        card_total_width = 264 + 16
-        return max(2, (width + 16) // card_total_width)
-
-    def _relayout_grid(self, force: bool = False) -> None:
-        if not self._cards:
-            return
-        cols = self._calculate_cols()
-        if not force and cols == self._current_cols:
-            return
-        self._current_cols = cols
-
-        while self.grid.count():
-            self.grid.takeAt(0)
-
-        for idx, card in enumerate(self._cards):
-            row = idx // cols
-            col = idx % cols
-            self.grid.addWidget(card, row, col)
-
     def load_page(self, page_num: int) -> None:
         batch_busy = self._batch_worker is not None
         self._total_count = db.count_favorites()
         self._total_pages = max(1, math.ceil(self._total_count / self._page_size))
         self._current_page = max(1, min(page_num, self._total_pages))
         offset = (self._current_page - 1) * self._page_size
-
-        for card in self._cards:
-            card.deleteLater()
-        self._cards.clear()
-        while self.grid.count():
-            item = self.grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._current_cols = 0
 
         self.count_badge.setText(f"{self._total_count} 张")
 
@@ -354,6 +298,7 @@ class FavoritesPage(QWidget):
             }
 
         if self._total_count == 0:
+            self.scroll.set_cards([])
             self.empty_card.show()
             self.random_fav_btn.setEnabled(False)
             self.batch_mode_btn.setEnabled(False)
@@ -382,8 +327,9 @@ class FavoritesPage(QWidget):
         self.jump_btn.setEnabled(not batch_busy)
 
         items = db.get_favorites(limit=self._page_size, offset=offset)
+        cards = []
         for item_data in items:
-            card = WallpaperCard(item_data, self.container)
+            card = WallpaperCard(item_data, self.scroll.content)
             card.apply_requested.connect(self.apply_wallpaper_requested.emit)
             card.preview_requested.connect(self._on_preview)
             card.favorite_toggled.connect(self._on_favorite_toggled)
@@ -392,10 +338,10 @@ class FavoritesPage(QWidget):
             card.set_selected(wallpaper_download_key(item_data) in self._selected_items)
             card.selection_checkbox.setEnabled(not batch_busy)
             card.fav_btn.setEnabled(not batch_busy)
-            self._cards.append(card)
+            cards.append(card)
 
+        self.scroll.set_cards(cards)
         self._update_batch_controls()
-        self._relayout_grid(force=True)
 
     def refresh(self) -> None:
         self.load_page(self._current_page)
@@ -436,7 +382,7 @@ class FavoritesPage(QWidget):
         self.batch_mode_btn.setIcon(
             create_icon("dismiss" if enabled else "download", color="#475569", size=16)
         )
-        for card in self._cards:
+        for card in self.scroll.cards:
             card.set_selection_mode(enabled)
         if not enabled:
             self._clear_batch_selection()
@@ -451,11 +397,11 @@ class FavoritesPage(QWidget):
         self._update_batch_controls()
 
     def _toggle_select_current_page(self) -> None:
-        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        page_keys = [wallpaper_download_key(card.item_data) for card in self.scroll.cards]
         select = bool(page_keys) and not all(
             key in self._selected_items for key in page_keys
         )
-        for card, key in zip(self._cards, page_keys, strict=True):
+        for card, key in zip(self.scroll.cards, page_keys, strict=True):
             card.set_selected(select)
             if select:
                 self._selected_items[key] = dict(card.item_data)
@@ -470,7 +416,7 @@ class FavoritesPage(QWidget):
             key in self._selected_items for key in all_by_key
         )
         self._selected_items = all_by_key if select else {}
-        for card in self._cards:
+        for card in self.scroll.cards:
             card.set_selected(
                 wallpaper_download_key(card.item_data) in self._selected_items
             )
@@ -478,7 +424,7 @@ class FavoritesPage(QWidget):
 
     def _clear_batch_selection(self) -> None:
         self._selected_items.clear()
-        for card in self._cards:
+        for card in self.scroll.cards:
             card.set_selected(False)
         self._update_batch_controls()
 
@@ -492,7 +438,7 @@ class FavoritesPage(QWidget):
         self.download_selected_btn.setEnabled(count > 0 and not busy)
         self.clear_selection_btn.setEnabled(count > 0 and not busy)
 
-        page_keys = [wallpaper_download_key(card.item_data) for card in self._cards]
+        page_keys = [wallpaper_download_key(card.item_data) for card in self.scroll.cards]
         all_page_selected = bool(page_keys) and all(
             key in self._selected_items for key in page_keys
         )
@@ -529,7 +475,7 @@ class FavoritesPage(QWidget):
         self.select_all_btn.setVisible(not busy)
         self.clear_selection_btn.setVisible(not busy)
         self.download_selected_btn.setVisible(not busy)
-        for card in self._cards:
+        for card in self.scroll.cards:
             card.selection_checkbox.setEnabled(not busy)
             card.fav_btn.setEnabled(not busy)
 
@@ -579,11 +525,3 @@ class FavoritesPage(QWidget):
         path = Path(config.download_dir)
         path.mkdir(parents=True, exist_ok=True)
         open_directory(path)
-
-    def resizeEvent(self, event) -> None:  # noqa: N802
-        super().resizeEvent(event)
-        self._relayout_grid()
-
-    def showEvent(self, event) -> None:  # noqa: N802
-        super().showEvent(event)
-        self._relayout_grid()

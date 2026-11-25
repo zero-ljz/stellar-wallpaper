@@ -81,7 +81,7 @@ def test_tray_restore_preserves_normal_state() -> None:
 
 
 def test_initial_window_uses_compact_default_size() -> None:
-    get_qapp()
+    app = get_qapp()
 
     class LightweightMainWindow(MainWindow):
         def _init_ui(self) -> None:
@@ -98,6 +98,15 @@ def test_initial_window_uses_compact_default_size() -> None:
     assert window.size() == QSize(930, 650)
     assert window.minimumWidth() == 850
     assert window.minimumHeight() == 0
+
+    try:
+        window.show()
+        app.processEvents()
+        handle = window.windowHandle()
+        assert handle is not None
+        assert handle.size() == window.size() == QSize(930, 650)
+    finally:
+        window.close()
 
 
 def test_main_window_uses_title_bar_menu_and_centered_title(monkeypatch) -> None:
@@ -237,7 +246,10 @@ def test_tray_uses_component_library_modern_menu() -> None:
     tray = AppTrayIcon()
 
     assert isinstance(tray.contextMenu(), ModernMenu)
-    tray.hide()
+    assert not tray.icon().isNull()
+    assert tray.icon().isMask() == (sys.platform == "darwin")
+    tray._dispose_menu()
+    assert tray.contextMenu() is None
 
 
 def test_wallpaper_badges_use_translucent_backgrounds(monkeypatch) -> None:

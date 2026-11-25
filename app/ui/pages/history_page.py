@@ -10,12 +10,9 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLayout,
     QPushButton,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -26,6 +23,7 @@ from ...core.database import db
 from ..components.message_box import open_directory, show_question
 from ..components.preview_dialog import PreviewDialog
 from ..components.wallpaper_card import WallpaperCard, extract_item_ids
+from ..components.wallpaper_grid import WallpaperGrid
 from ..icons import create_fluent_pixmap, create_icon
 
 
@@ -36,8 +34,6 @@ class HistoryPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._cards: list[WallpaperCard] = []
-        self._current_cols = 0
         self._page_size = 24
         self._current_page = 1
         self._total_count = 0
@@ -108,19 +104,7 @@ class HistoryPage(QWidget):
         layout.addLayout(header)
 
         # Grid Scroll Area
-        self.scroll = QScrollArea(self)
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll.setStyleSheet("background: transparent; border: none;")
-        self.scroll.viewport().setStyleSheet("background: transparent; border: none;")
-        self.container = QWidget(self.scroll)
-        self.container.setStyleSheet("background: transparent; border: none;")
-        self.grid = QGridLayout(self.container)
-        self.grid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
-        self.grid.setContentsMargins(0, 4, 0, 4)
-        self.grid.setSpacing(16)
-        self.grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        self.scroll.setWidget(self.container)
+        self.scroll = WallpaperGrid(self)
         layout.addWidget(self.scroll, 1)
 
         # Empty state card
@@ -204,49 +188,16 @@ class HistoryPage(QWidget):
         page_bar.addStretch()
         layout.addWidget(self.page_bar_widget)
 
-    def _calculate_cols(self) -> int:
-        vp_width = self.scroll.viewport().width()
-        scroll_w = self.scroll.width()
-        page_w = self.width() - 48
-
-        width = vp_width if (vp_width > 50 and abs(vp_width - scroll_w) <= 30) else max(scroll_w, page_w, 300)
-        card_total_width = 264 + 16
-        return max(2, (width + 16) // card_total_width)
-
-    def _relayout_grid(self, force: bool = False) -> None:
-        if not self._cards:
-            return
-        cols = self._calculate_cols()
-        if not force and cols == self._current_cols:
-            return
-        self._current_cols = cols
-
-        while self.grid.count():
-            self.grid.takeAt(0)
-
-        for idx, card in enumerate(self._cards):
-            row = idx // cols
-            col = idx % cols
-            self.grid.addWidget(card, row, col)
-
     def load_page(self, page_num: int) -> None:
         self._total_count = db.count_history()
         self._total_pages = max(1, math.ceil(self._total_count / self._page_size))
         self._current_page = max(1, min(page_num, self._total_pages))
         offset = (self._current_page - 1) * self._page_size
 
-        for card in self._cards:
-            card.deleteLater()
-        self._cards.clear()
-        while self.grid.count():
-            item = self.grid.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        self._current_cols = 0
-
         self.count_badge.setText(f"{self._total_count} 条")
 
         if self._total_count == 0:
+            self.scroll.set_cards([])
             self.empty_card.show()
             self.clear_btn.setEnabled(False)
             self.page_bar_widget.hide()
@@ -266,13 +217,14 @@ class HistoryPage(QWidget):
         self.jump_spinbox.setValue(self._current_page)
 
         items = db.get_history(limit=self._page_size, offset=offset)
+        cards = []
         for item_data in items:
-            card = WallpaperCard(item_data, self.container)
+            card = WallpaperCard(item_data, self.scroll.content)
             card.apply_requested.connect(self.apply_wallpaper_requested.emit)
             card.preview_requested.connect(self._on_preview)
-            self._cards.append(card)
+            cards.append(card)
 
-        self._relayout_grid(force=True)
+        self.scroll.set_cards(cards)
 
     def refresh(self) -> None:
         self.load_page(self._current_page)
@@ -294,7 +246,7 @@ class HistoryPage(QWidget):
         dialog = PreviewDialog(item_data, self)
         dialog.apply_requested.connect(self.apply_wallpaper_requested.emit)
         dialog.exec()
-        for card in self._cards:
+        for card in self.scroll.cards:
             wid, url = extract_item_ids(card.item_data)
             fav = db.is_favorite(wid, url)
             if card._is_favorited != fav:
@@ -310,11 +262,3 @@ class HistoryPage(QWidget):
         if show_question(self, "确认清空", "确定要清空所有历史记录吗？"):
             db.clear_history()
             self.load_page(1)
-
-    def resizeEvent(self, event) -> None:  # noqa: N802
-        super().resizeEvent(event)
-        self._relayout_grid()
-
-    def showEvent(self, event) -> None:  # noqa: N802
-        super().showEvent(event)
-        self._relayout_grid()

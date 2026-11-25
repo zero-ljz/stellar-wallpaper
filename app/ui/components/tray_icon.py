@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSize, Signal
+from PySide6.QtCore import QRectF, QSize, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -22,13 +24,13 @@ from ...config import config
 from ...constants import APP_NAME, APP_VERSION
 from ...core.database import db
 from ...core.scheduler import scheduler
-from ..icons import create_icon
+from ..icons import create_fluent_icon, create_icon
 from .desktop_notification import get_desktop_notification
 from .message_box import open_directory
 
 
 def create_default_tray_icon() -> QIcon:
-    """Load the app icon shared by the window, tray, and Windows executable."""
+    """Load the full-color application icon."""
     icon_path = Path(__file__).resolve().parents[2] / "resources" / "app_icon.ico"
     return QIcon(str(icon_path))
 
@@ -132,18 +134,28 @@ class AppTrayIcon(QSystemTrayIcon):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setIcon(create_default_tray_icon())
+        if sys.platform == "darwin":
+            # AppKit already supplies menu bar padding. Keep just one unit
+            # around this glyph inside its 24-unit Fluent canvas.
+            icon = create_fluent_icon("image", "#000000", view_box=QRectF(2, 2, 20, 20))
+            icon.setIsMask(True)
+        else:
+            icon = create_default_tray_icon()
+        self.setIcon(icon)
         self.setToolTip(f"{APP_NAME} - 运行中")
 
-        self._init_menu()
+        self._init_menu(parent)
         self.activated.connect(self._on_tray_activated)
+        application = QApplication.instance()
+        if isinstance(application, QApplication):
+            application.aboutToQuit.connect(self._dispose_menu)
 
         # Hook scheduler notifications
         scheduler.wallpaper_applied.connect(self._on_wallpaper_applied)
         scheduler.status_changed.connect(self._on_scheduler_status_changed)
 
-    def _init_menu(self) -> None:
-        self.menu = ModernMenu()
+    def _init_menu(self, parent: QWidget | None) -> None:
+        self.menu = ModernMenu(parent)
         self.menu.setFixedWidth(228)
 
         # 1. Header Card
@@ -189,6 +201,14 @@ class AppTrayIcon(QSystemTrayIcon):
         self.menu.aboutToShow.connect(self._sync_menu_state)
 
         self.setContextMenu(self.menu)
+
+    def _dispose_menu(self) -> None:
+        menu = self.contextMenu()
+        if menu is not None:
+            # Detach the native item while Qt can still release widget actions.
+            self.hide()
+            self.setContextMenu(None)
+            menu.deleteLater()
 
     def _sync_menu_state(self) -> None:
         """Syncs tray menu header, timer state, and favorite state before showing."""

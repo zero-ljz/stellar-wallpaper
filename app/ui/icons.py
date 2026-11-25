@@ -175,10 +175,12 @@ def create_fluent_pixmap(
 class FluentSvgIconEngine(QIconEngine):
     """Dynamically renders SVG vector paths at any requested DPI/resolution with antialiasing."""
 
-    def __init__(self, svg_bytes: QByteArray) -> None:
+    def __init__(self, svg_bytes: QByteArray, view_box: QRectF | None = None) -> None:
         super().__init__()
         self._svg_bytes = svg_bytes
         self._renderer = QSvgRenderer(svg_bytes)
+        if view_box is not None:
+            self._renderer.setViewBox(view_box)
 
     def paint(self, painter: QPainter, rect: QRect | QRectF, mode: QIcon.Mode, state: QIcon.State) -> None:
         painter.save()
@@ -198,15 +200,21 @@ class FluentSvgIconEngine(QIconEngine):
         return pix
 
     def clone(self) -> QIconEngine:
-        return FluentSvgIconEngine(self._svg_bytes)
+        return FluentSvgIconEngine(self._svg_bytes, self._renderer.viewBoxF())
 
 
-def create_fluent_icon(name: str, color: str = "#475569", size: int = 24) -> QIcon:
+def create_fluent_icon(
+    name: str,
+    color: str = "#475569",
+    size: int = 24,
+    *,
+    view_box: QRectF | None = None,
+) -> QIcon:
     """Creates a high-DPI crisp vector QIcon from Fluent SVG."""
     svg_bytes = get_tinted_svg_data(name, color)
     if not svg_bytes:
         return QIcon()
-    return QIcon(FluentSvgIconEngine(svg_bytes))
+    return QIcon(FluentSvgIconEngine(svg_bytes, view_box))
 
 
 def create_icon(name: str, color: str = "#475569", size: int = 24) -> QIcon:

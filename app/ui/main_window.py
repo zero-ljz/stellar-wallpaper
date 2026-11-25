@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QColor, QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QLayout, QPushButton, QWidget
 from pyside6_modern_widgets import (
     ModernMenuBar,
@@ -16,6 +16,7 @@ from pyside6_modern_widgets import (
     NavigationPosition,
     NavigationView,
 )
+from pyside6_modern_widgets._macos_window import set_macos_window_appearance
 
 from ..config import config
 from ..constants import APP_NAME, APP_VERSION
@@ -54,6 +55,15 @@ class MainWindow(ModernWindow):
         self.resize(930, 650)
         self._init_tray()
         self._init_events()
+
+    def apply_window_style(self) -> None:
+        super().apply_window_style()
+        if self._uses_native_macos_title_bar:
+            # Use AppKit's frame and match the traffic lights to the Qt surface,
+            # including when the system uses Dark Aqua.
+            self.chromeOverlay.hide()
+            dark_surface = QColor(self.theme().surface).lightness() < 128
+            set_macos_window_appearance(self, dark=dark_surface)
 
     def showMaximized(self) -> None:
         """Preserve the normal geometry when maximizing."""
@@ -449,6 +459,12 @@ class MainWindow(ModernWindow):
         QApplication.quit()
 
     def showEvent(self, event) -> None:
+        if self._uses_native_macos_title_bar and not self._macos_title_bar_configured:
+            # AppKit uses the native window's size when switching to a
+            # full-size title bar. Sync it before the switch.
+            handle = self.windowHandle()
+            if handle is not None:
+                handle.resize(self.size())
         super().showEvent(event)
         force_window_light_mode(int(self.winId()))
 
