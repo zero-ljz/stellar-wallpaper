@@ -118,11 +118,23 @@ uv run python build.py --onefile
 
 ### 6. 打包 7z 便携版
 
-Windows 上安装 7-Zip 后可生成体积更小的 `dist/StellarWallpaper.7z`。使用时先解压整个目录，再双击其中的 `StellarWallpaper.exe`。
+Windows 上安装 7-Zip 后可生成体积更小的 `dist/StellarWallpaper-<版本号>-windows-x64-portable.7z`。使用时先解压整个目录，再双击其中的 `StellarWallpaper.exe`。
 
 ```bash
 uv run python build.py --archive
 ```
+
+### 7. 打包 macOS 通用版
+
+在 Mac 上安装 [Python.org 的 Python 3.12 Universal 2 安装包](https://www.python.org/downloads/release/python-31210/)、uv 和 Xcode 命令行工具（`xcode-select --install`）。在项目根目录执行：
+
+```bash
+uv run --locked --python /Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12 python build.py --dmg
+```
+
+产物为 `dist/StellarWallpaper-<版本号>-macos-universal.dmg`，同时支持 Apple Silicon 和 Intel。打开镜像，把 `StellarWallpaper.app` 拖到「应用程序」即可安装。
+
+构建使用 PyInstaller 的临时代码签名。若要面向公众发布并通过 Gatekeeper 的常规验证，可使用 Developer ID 签名并提交 Apple 公证。只需要本机架构的 `.app` 时，运行 `uv run python build.py`。
 
 ---
 

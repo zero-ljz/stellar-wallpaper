@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtCore import QSize, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -23,39 +22,15 @@ from ...config import config
 from ...constants import APP_NAME, APP_VERSION
 from ...core.database import db
 from ...core.scheduler import scheduler
-from ..icons import create_fluent_pixmap, create_icon
+from ..icons import create_icon
 from .desktop_notification import get_desktop_notification
 from .message_box import open_directory
 
 
 def create_default_tray_icon() -> QIcon:
-    """Generates a clean programmatic high-DPI tray icon pixmap."""
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-    # Blue rounded square
-    painter.setBrush(QColor("#0078D4"))
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawRoundedRect(2, 2, 28, 28, 6, 6)
-
-    # White mountain / wallpaper glyph
-    from PySide6.QtCore import QPoint
-    from PySide6.QtGui import QPolygon
-
-    painter.setBrush(QColor("#FFFFFF"))
-    polygon = QPolygon([
-        QPoint(6, 24),
-        QPoint(14, 12),
-        QPoint(20, 20),
-        QPoint(24, 16),
-        QPoint(26, 24),
-    ])
-    painter.drawPolygon(polygon)
-    painter.drawEllipse(20, 7, 4, 4)
-    painter.end()
-    return QIcon(pixmap)
+    """Load the app icon shared by the window, tray, and Windows executable."""
+    icon_path = Path(__file__).resolve().parents[2] / "resources" / "app_icon.ico"
+    return QIcon(str(icon_path))
 
 
 class TrayHeaderWidget(QWidget):
@@ -83,7 +58,9 @@ class TrayHeaderWidget(QWidget):
 
         # App Icon
         icon_lbl = QLabel(card)
-        icon_lbl.setPixmap(create_fluent_pixmap("gallery", "#0078D4", size=20))
+        icon_lbl.setPixmap(
+            create_default_tray_icon().pixmap(QSize(20, 20), icon_lbl.devicePixelRatioF())
+        )
         icon_lbl.setFixedSize(22, 22)
         icon_lbl.setStyleSheet("border: none; background: transparent;")
         card_layout.addWidget(icon_lbl)

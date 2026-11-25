@@ -3,12 +3,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.constants import APP_ID
+from app.constants import APP_ID, APP_VERSION
 from tools.build_ui_font import build_ui_font
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--onefile", action="store_true")
 parser.add_argument("--no-upx", action="store_true")
+parser.add_argument("--universal2", action="store_true")
 options = parser.parse_args()
 
 packaging_dir = Path(SPECPATH)
@@ -30,6 +31,7 @@ font_file = resources / "fonts" / "LXGWWenKaiLite-Regular.ttf"
 ui_font = Path(workpath) / font_file.name
 build_ui_font(project_root, font_file, ui_font)
 datas = [
+    (str(resources / "app_icon.ico"), "app/resources"),
     (str(resources / "icons"), "app/resources/icons"),
     (str(ui_font), "app/resources/fonts"),
     (str(font_file.with_name("OFL-LXGWWenKaiLite.txt")), "app/resources/fonts"),
@@ -82,13 +84,21 @@ if is_windows:
 pyz = PYZ(analysis.pure)
 name = "StellarWallpaper"
 use_upx = not options.no_upx
+target_arch = "universal2" if options.universal2 else None
 if options.onefile:
     bundle = EXE(
-        pyz, analysis.scripts, analysis.binaries, analysis.datas, name=name, console=False, icon=icon, upx=use_upx
+        pyz, analysis.scripts, analysis.binaries, analysis.datas,
+        name=name, console=False, icon=icon, upx=use_upx, target_arch=target_arch,
     )
 else:
-    exe = EXE(pyz, analysis.scripts, name=name, console=False, icon=icon, exclude_binaries=True)
+    exe = EXE(
+        pyz, analysis.scripts, name=name, console=False, icon=icon,
+        exclude_binaries=True, target_arch=target_arch,
+    )
     bundle = COLLECT(exe, analysis.binaries, analysis.datas, name=name, upx=use_upx)
 
 if is_macos:
-    BUNDLE(bundle, name=f"{name}.app", icon=icon, bundle_identifier=APP_ID)
+    BUNDLE(
+        bundle, name=f"{name}.app", icon=icon, bundle_identifier=APP_ID, version=APP_VERSION,
+        info_plist={"NSAppleEventsUsageDescription": "星澜壁纸需要通过系统事件来更换桌面壁纸。"},
+    )
